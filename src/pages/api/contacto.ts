@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
+import { db, hasDb as dbConfigured } from '../../lib/db';
 
 // Único endpoint del formulario de Contacto. Guarda el lead en la base (fuente de verdad
 // para el panel /admin) y, además, intenta avisar por mail con Resend. Si el mail falla,
@@ -40,7 +41,7 @@ export const POST: APIRoute = async ({ request }) => {
   };
 
   const apiKey = import.meta.env.RESEND_API_KEY;
-  const hasDb = Boolean(import.meta.env.POSTGRES_URL);
+  const hasDb = dbConfigured();
 
   // 1. Intentar el mail (best-effort: si falla, no se corta el flujo).
   let resendStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
@@ -90,11 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
   let dbOk = false;
   if (hasDb) {
     try {
-      // Cadena de conexión explícita (no el `sql` ambiental, que solo lee `process.env`),
-      // para que funcione igual en `astro dev` y en Vercel.
-      const { createPool } = await import('@vercel/postgres');
-      const db = createPool({ connectionString: import.meta.env.POSTGRES_URL });
-      await db.sql`
+      await db()`
         INSERT INTO leads (nombre, empresa, cargo, email, whatsapp, tamano, resolver, ruta_referido, comentarios, resend_status)
         VALUES (${fields.nombre}, ${fields.empresa}, ${fields.cargo}, ${fields.email}, ${fields.whatsapp},
                 ${fields.tamano}, ${fields.resolver}, ${fields.ruta_referido}, ${fields.comentarios}, ${resendStatus})

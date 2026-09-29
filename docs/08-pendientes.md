@@ -181,6 +181,11 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Nombre del perfil en cal.com:** preferencia del cliente (29/09) es que figure «Fedes Consultora»; si no es posible en cal.com, no hay problema en que figure «Fede Chironi» (misma excepción puntual ya aprobada para el calendario de Google, ver `06-contacto-y-nosotros.md`).
 - **Al migrar:** actualizar `embedUrl` en `src/content/contacto.ts` (o pasar a construir la URL en el cliente con los datos del paso 1, si se arma el precompletado) y el texto de `calendario.body`, que hoy aclara que «Google te va a pedir tu nombre y mail de nuevo» — eso deja de ser cierto con cal.com.
 
+## Registro de la construcción (driver de base de datos, 29/09)
+
+- **Cambio de `@vercel/postgres` a `@neondatabase/serverless`:** el paquete de Vercel está discontinuado (Vercel pasó su Postgres a Neon). Es el mismo motor y la misma variable `POSTGRES_URL`; no cambia de proveedor ni requiere migrar datos. La conexión quedó centralizada en `src/lib/db.ts`.
+- **No probado contra la base real:** no hay `.env` local con `POSTGRES_URL`. Hay que confirmar en la vista previa de Vercel que el panel lista los leads y que el formulario de Contacto los guarda.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

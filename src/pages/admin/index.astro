@@ -2,6 +2,7 @@
 export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import { site } from '../../content/site';
+import { db, hasDb } from '../../lib/db';
 
 type Lead = {
   id: number;
@@ -22,13 +23,9 @@ type Lead = {
 let leads: Lead[] = [];
 let dbError: string | null = null;
 
-if (import.meta.env.POSTGRES_URL) {
+if (hasDb()) {
   try {
-    // Se crea el pool con la cadena de conexión explícita (en vez del `sql` ambiental,
-    // que solo lee `process.env`) para que funcione igual en `astro dev` y en Vercel.
-    const { createPool } = await import('@vercel/postgres');
-    const db = createPool({ connectionString: import.meta.env.POSTGRES_URL });
-    const { rows } = await db.sql<Lead>`SELECT * FROM leads ORDER BY created_at DESC LIMIT 300`;
+    const rows = (await db()`SELECT * FROM leads ORDER BY created_at DESC LIMIT 300`) as Lead[];
     // El driver devuelve created_at como Date, no como texto: se normaliza a ISO acá,
     // así el resto de la página siempre trabaja con un string.
     leads = rows.map((r) => ({ ...r, created_at: new Date(r.created_at).toISOString() }));
