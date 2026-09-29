@@ -1,0 +1,10 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+import { nosotros as n } from '../content/contacto';
+---
+
+<!-- En construcción: URL reservada, fuera del menú y del pie. No indexar. -->
+<Base title={n.meta.title} description={n.meta.description} noindex>
+  <PageHero eyebrow={n.eyebrow} title={n.title} body={n.body} cta={n.primary} />
+</Base>

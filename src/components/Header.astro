@@ -1,0 +1,83 @@
+---
+import { site, nav, ctaNav } from '../content/site';
+import Arrow from './Arrow.astro';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+---
+
+<header
+  id="site-header"
+  class="fixed inset-x-0 top-0 z-50 border-b border-transparent text-white transition-colors duration-300 data-[scrolled=true]:border-white/10 data-[scrolled=true]:bg-ink/90 data-[scrolled=true]:backdrop-blur-md"
+>
+  <div class="container-fedes flex h-16 items-center justify-between md:h-20">
+    <!-- Logo en blanco: solo sobre fondo oscuro o azul Fedes. No cambiar color ni proporciones. -->
+    <a href="/" class="block" aria-label="Fedes Consultora, inicio">
+      <img src={site.logo} alt="Fedes Consultora" width="2620" height="976" class="h-10 w-auto md:h-12" />
+    </a>
+
+    <nav aria-label="Principal" class="hidden items-center gap-9 md:flex">
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+            class:list={[
+              'font-display text-sm font-medium transition-colors hover:text-celeste',
+              isActive(item.href) ? 'text-white underline decoration-accent decoration-2 underline-offset-8' : 'text-white/75',
+            ]}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <a href={ctaNav.href} class="btn btn-light hidden md:inline-flex">
+      {ctaNav.label}
+      <Arrow />
+    </a>
+
+    <button
+      id="menu-toggle"
+      type="button"
+      class="flex h-10 w-10 items-center justify-center md:hidden"
+      aria-expanded="false"
+      aria-controls="menu-mobile"
+      aria-label="Abrir menú"
+    >
+      <span class="block h-px w-6 bg-white before:absolute before:block before:h-px before:w-6 before:-translate-y-2 before:bg-white after:absolute after:block after:h-px after:w-6 after:translate-y-2 after:bg-white"></span>
+    </button>
+  </div>
+
+  <div id="menu-mobile" class="hidden border-t border-white/10 bg-ink md:hidden">
+    <nav aria-label="Principal móvil" class="container-fedes flex flex-col gap-1 py-6">
+      {
+        nav.map((item) => (
+          <a href={item.href} class="border-b border-white/10 py-4 font-display text-lg font-semibold">
+            {item.label}
+          </a>
+        ))
+      }
+      <a href={ctaNav.href} class="btn btn-light mt-6">{ctaNav.label}</a>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const header = document.getElementById('site-header');
+  const setScrolled = () => header?.setAttribute('data-scrolled', String(window.scrollY > 24));
+  setScrolled();
+  window.addEventListener('scroll', setScrolled, { passive: true });
+
+  const toggle = document.getElementById('menu-toggle');
+  const menu = document.getElementById('menu-mobile');
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!open));
+    toggle.setAttribute('aria-label', open ? 'Abrir menú' : 'Cerrar menú');
+    menu?.classList.toggle('hidden');
+    // Con el menú abierto la barra siempre es sólida, aunque estemos arriba de todo.
+    header?.setAttribute('data-scrolled', String(!open || window.scrollY > 24));
+  });
+</script>

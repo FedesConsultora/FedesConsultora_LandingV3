@@ -1,0 +1,154 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+import CtaBand from '../components/CtaBand.astro';
+import Abstract from '../components/Abstract.astro';
+import Arrow from '../components/Arrow.astro';
+import { onboardings as c } from '../content/onboardings';
+import { consultoria } from '../content/consultoria';
+import { SITE_URL, providerRef } from '../lib/seo';
+
+// Sin tildes ni espacios, para usar como id de ancla (#mercado-y-marca, etc.)
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+// Un servicio por ruta, igual criterio que en /consultoria: sin precios.
+const serviceSchema = consultoria.rutas.map((r) => ({
+  '@type': 'Service',
+  '@id': `${SITE_URL}/onboardings#${slug(r.name)}`,
+  name: `Onboarding: ${r.name}`,
+  serviceType: 'Consultoría de negocios',
+  description: r.question,
+  provider: providerRef,
+  url: `${SITE_URL}/onboardings#${slug(r.name)}`,
+  hasOfferCatalog: {
+    '@type': 'OfferCatalog',
+    name: r.name,
+    itemListElement: r.levels.map((l) => ({
+      '@type': 'Offer',
+      itemOffered: { '@type': 'Service', name: l.name, description: `${l.body} Entregable: ${l.entregable}` },
+    })),
+  },
+}));
+
+// Ritmo visual: clara, celeste tenue, oscura. La última ruta cierra en oscuro antes del CTA final.
+const tones = ['light', 'tint', 'dark'] as const;
+---
+
+<Base title={c.meta.title} description={c.meta.description} crumb="Onboardings" schema={serviceSchema}>
+  <PageHero {...c.hero} />
+
+  <!-- Resumen + salto directo a cada ruta -->
+  <section class="section !pb-10">
+    <div class="container-fedes">
+      <p data-reveal class="eyebrow text-azul">{c.overview.eyebrow}</p>
+      <h2 data-reveal style="--d:100ms" class="mt-6 max-w-3xl text-3xl leading-[1.1] sm:text-4xl">{c.overview.title}</h2>
+      <p data-reveal style="--d:150ms" class="mt-4 font-display text-sm text-ink/60">
+        ¿Querés entender primero cómo trabajamos? Mirá <a href="/consultoria" class="text-azul underline underline-offset-4 hover:text-ink">Consultoría</a>.
+      </p>
+
+      <nav aria-label="Ir a una ruta" class="mt-10 grid gap-4 md:grid-cols-3">
+        {
+          consultoria.rutas.map((r, i) => (
+            <a
+              data-reveal
+              style={`--d:${i * 100}ms`}
+              href={`#${slug(r.name)}`}
+              class="group flex flex-col justify-between rounded-3xl border border-ink/15 p-7 transition duration-300 hover:-translate-y-1 hover:border-azul hover:shadow-xl hover:shadow-azul/10"
+            >
+              <span class="font-display text-sm font-semibold text-azul">{r.number}</span>
+              <div class="mt-10">
+                <h3 class="text-xl">{r.name}</h3>
+                <p class="mt-2 text-ink/70">{r.question}</p>
+              </div>
+              <span class="mt-8 inline-flex items-center gap-2 font-display text-sm font-semibold text-azul">
+                {c.overview.cta}
+                <Arrow class="h-3.5 w-3.5 transition group-hover:translate-x-1" />
+              </span>
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+  </section>
+
+  <!-- Una sección por ruta: pregunta, sus onboardings en pasos simples, y un CTA propio -->
+  {
+    consultoria.rutas.map((r, i) => {
+      const tone = tones[i] ?? 'light';
+      const dark = tone === 'dark';
+      return (
+        <section
+          id={slug(r.name)}
+          class:list={[
+            'relative isolate overflow-hidden py-20 md:py-28',
+            tone === 'light' && 'bg-white',
+            tone === 'tint' && 'bg-azul/[0.06]',
+            tone === 'dark' && 'bg-ink text-white',
+          ]}
+        >
+          {tone === 'tint' && <Abstract variant="grid" tone="light" />}
+          {tone === 'dark' && <Abstract variant="arcs" />}
+
+          <div class="container-fedes relative">
+            <p data-reveal class:list={['eyebrow', dark ? 'text-celeste' : 'text-azul']}>
+              Ruta {r.number}
+            </p>
+            <h2 data-reveal style="--d:80ms" class="mt-6 text-3xl leading-[1.05] sm:text-5xl">
+              {r.name}
+            </h2>
+            <p
+              data-reveal
+              style="--d:140ms"
+              class:list={['mt-4 max-w-2xl font-display text-lg font-medium italic md:text-xl', dark ? 'text-celeste' : 'text-azul']}
+            >
+              {r.question}
+            </p>
+
+            <ol class="mt-12 max-w-3xl space-y-8">
+              {r.levels.map((l, idx) => (
+                <li
+                  data-reveal
+                  style={`--d:${180 + idx * 110}ms`}
+                  class:list={['flex gap-6 border-t pt-8', dark ? 'border-white/20' : 'border-ink/15']}
+                >
+                  <span class:list={['font-display text-2xl font-extrabold leading-none', dark ? 'text-white/30' : 'text-azul/30']}>
+                    0{idx + 1}
+                  </span>
+                  <div class="flex-1">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <h3 class="text-xl">{l.name}</h3>
+                      {l.includes && <span class="pill !py-1 !text-[10px]">Incluye {l.includes}</span>}
+                    </div>
+                    <p class:list={['mt-3', dark ? 'text-white/80' : 'text-ink/75']}>{l.body}</p>
+                    <p class:list={['mt-3 text-sm', dark ? 'text-white/60' : 'text-ink/55']}>
+                      <span class="eyebrow mr-2 inline-block !text-[10px] opacity-70">Entregable</span>
+                      {l.entregable}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <a
+              data-reveal
+              style={`--d:${180 + r.levels.length * 110}ms`}
+              href={`/contacto?ruta=${encodeURIComponent(r.name)}`}
+              class:list={['mt-12 inline-flex', dark ? 'btn btn-light' : 'btn btn-primary']}
+            >
+              {c.ctaRuta(r.name)}
+              <Arrow />
+            </a>
+          </div>
+        </section>
+      );
+    })
+  }
+
+  <CtaBand {...c.closing} />
+</Base>

@@ -1,0 +1,64 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import { site } from '../../content/site';
+import { isAdminConfigured } from '../../lib/auth';
+
+const next = Astro.url.searchParams.get('next') || '/admin';
+const configured = isAdminConfigured();
+---
+
+<Base title={`Panel | ${site.name}`} description="Acceso al panel de administración." noindex bare>
+  <section class="flex min-h-[100svh] items-center justify-center bg-ink px-5 py-24 text-white">
+    <div class="w-full max-w-sm">
+      <p class="eyebrow text-celeste">{site.name}</p>
+      <h1 class="mt-4 text-3xl font-bold">Panel de administración</h1>
+
+      {
+        !configured ? (
+          <p class="mt-8 rounded-xl border border-white/20 bg-white/5 p-5 text-sm text-white/80">
+            El panel todavía no está configurado (faltan las variables de entorno del admin). Avisale a quien esté armando el sitio.
+          </p>
+        ) : (
+          <form id="login-form" class="mt-8 space-y-5" novalidate>
+            <div>
+              <label for="username" class="block font-display text-sm font-semibold">Usuario</label>
+              <input id="username" name="username" type="text" autocomplete="username" required
+                class="mt-2 w-full rounded-xl border border-white/25 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-celeste" />
+            </div>
+            <div>
+              <label for="password" class="block font-display text-sm font-semibold">Contraseña</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" required
+                class="mt-2 w-full rounded-xl border border-white/25 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-celeste" />
+            </div>
+            <p id="login-error" role="alert" class="hidden rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-sm"></p>
+            <button type="submit" id="login-submit" class="btn btn-light w-full">Entrar</button>
+          </form>
+        )
+      }
+    </div>
+  </section>
+
+  <script define:vars={{ next }}>
+    const form = document.getElementById('login-form');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-submit');
+      const err = document.getElementById('login-error');
+      err.classList.add('hidden');
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Entrando…';
+      try {
+        const res = await fetch('/api/admin/login', { method: 'POST', body: new FormData(form) });
+        if (!res.ok) throw new Error();
+        location.href = next;
+      } catch {
+        err.textContent = 'Usuario o contraseña incorrectos.';
+        err.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  </script>
+</Base>

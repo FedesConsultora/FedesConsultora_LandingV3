@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+import CtaBand from '../components/CtaBand.astro';
+import Abstract from '../components/Abstract.astro';
+import { Picture } from 'astro:assets';
+import { photos } from '../content/photos';
+import { casos as c } from '../content/casos';
+---
+
+<Base title={c.meta.title} description={c.meta.description} crumb="Casos">
+  <PageHero {...c.hero} image={photos.casosHero} position="center 40%" />
+
+  <section class="section relative isolate overflow-hidden">
+    <Abstract variant="grid" tone="light" />
+    <div class="container-fedes relative space-y-6 md:space-y-8">
+      {
+        c.items.map((k, i) => (
+          <article data-reveal class="group grid overflow-hidden rounded-3xl border border-ink/15 bg-white lg:grid-cols-[1fr_1.3fr]">
+            <div class="relative isolate flex flex-col overflow-hidden p-8 text-white md:p-12">
+              <Picture src={k.image} alt={k.imageAlt} formats={['avif', 'webp']} widths={[480, 800, 1200]} sizes="(min-width: 1024px) 40vw, 100vw" loading="lazy" decoding="async" pictureAttributes={{ class: 'absolute inset-0 -z-20 block h-full w-full' }} class="h-full w-full object-cover transition-transform duration-[1400ms] group-hover:scale-105" />
+              <div class="absolute inset-0 -z-10 bg-gradient-to-t from-ink/95 via-ink/70 to-ink/45"></div>
+              <div class="flex flex-wrap items-center gap-3 text-celeste">
+                <span class="font-display text-sm font-semibold">0{i + 1}</span>
+                <span class="pill !text-[10px]">{k.onboarding}</span>
+              </div>
+              <p class="eyebrow mt-8 text-white/80">{k.sector}</p>
+              <div class="mt-10 lg:mt-auto">
+                <p class="min-h-6 font-display text-base font-medium text-white/80">{k.prefix}</p>
+                <p data-count class="font-display text-6xl font-extrabold leading-none tracking-tight text-white sm:text-7xl">{k.figure}</p>
+                <p class="mt-4 font-display text-base font-medium text-white/90">{k.measures}</p>
+                <p class="mt-6 border-t border-white/25 pt-4 text-sm text-white/80">
+                  <span class="eyebrow mr-2 !text-[10px]">{c.plazoLabel}</span>{k.plazo}
+                </p>
+              </div>
+            </div>
+
+            <div class="p-8 md:p-12">
+              <h2 class="text-2xl leading-tight sm:text-3xl">{k.headline}</h2>
+              <p class="lead mt-6 text-ink/80">{k.body}</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <CtaBand {...c.cierre} />
+</Base>

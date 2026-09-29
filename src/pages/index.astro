@@ -1,0 +1,220 @@
+---
+import Base from '../layouts/Base.astro';
+import { Picture } from 'astro:assets';
+import ImageSlot from '../components/ImageSlot.astro';
+import Arrow from '../components/Arrow.astro';
+import Abstract from '../components/Abstract.astro';
+import Marquee from '../components/Marquee.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { inicio as c } from '../content/inicio';
+---
+
+<Base title={c.meta.title} description={c.meta.description}>
+  <!-- 1. Cabecera: foto a pantalla completa -->
+  <section class="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-ink text-white">
+    <Picture
+      src={c.hero.image.src}
+      alt=""
+      aria-hidden="true"
+      formats={['avif', 'webp']}
+      widths={[640, 1024, 1600, 2200]}
+      sizes="100vw"
+      loading="eager"
+      fetchpriority="high"
+      pictureAttributes={{ class: 'absolute inset-0 -z-20 block h-full w-full' }}
+      class="anim-kenburns h-full w-full object-cover"
+      style="object-position: 60% center"
+    />
+    <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink/95 via-ink/70 to-ink/25"></div>
+    <div class="absolute inset-0 -z-10 bg-gradient-to-t from-ink/80 via-transparent to-ink/50"></div>
+
+    <div class="container-fedes flex flex-1 flex-col justify-end gap-12 pb-16 pt-36 md:pb-24 md:pt-44 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-3xl">
+        <h1 class="anim-rise text-[2rem] font-bold leading-[1.1] sm:text-5xl lg:text-[3.5rem]" style="animation-delay:.1s">
+          {c.hero.title}
+        </h1>
+        <p class="anim-rise lead mt-8 max-w-2xl text-white/85" style="animation-delay:.2s">{c.hero.body}</p>
+        <div class="anim-rise mt-10 flex flex-wrap gap-4" style="animation-delay:.3s">
+          <a href={c.hero.cta.href} class="btn btn-light">{c.hero.cta.label}<Arrow /></a>
+        </div>
+      </div>
+
+      <dl class="anim-rise grid w-full max-w-xs shrink-0 gap-px overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md lg:mb-2" style="animation-delay:.45s">
+        {
+          c.hero.facts.map((f) => (
+            <div class="bg-ink/40 px-6 py-5">
+              <dt class="eyebrow !text-[10px] text-white/65">{f.label}</dt>
+              <dd class="mt-2 font-display text-3xl font-extrabold">{f.value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </section>
+
+  <Marquee items={c.marquee} />
+
+  <!-- 2. El problema -->
+  <section class="section">
+    <div class="container-fedes grid gap-12 lg:grid-cols-[1.2fr_1fr] lg:items-center lg:gap-20">
+      <div>
+        <p data-reveal class="eyebrow text-azul">El problema</p>
+        <h2 data-reveal style="--d:100ms" class="mt-6 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{c.problema.title}</h2>
+        <p data-reveal style="--d:200ms" class="lead mt-8 max-w-xl text-ink/80">{c.problema.body}</p>
+      </div>
+      <div data-reveal style="--d:150ms" class="group aspect-[4/3] overflow-hidden rounded-3xl">
+        <ImageSlot {...c.problema.image} class="transition-transform duration-[1200ms] group-hover:scale-105" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Tres rutas -->
+  <section class="relative isolate overflow-hidden bg-azul/[0.06] pb-20 pt-4 md:pb-32">
+    <Abstract variant="grid" tone="light" />
+    <div class="container-fedes pt-16 md:pt-24">
+      <div data-reveal class="flex items-end justify-between gap-8 border-t border-ink/20 pt-6">
+        <p class="eyebrow text-azul">Rutas</p>
+        <a href={c.rutas.cta.href} class="hidden font-display text-sm font-semibold underline decoration-accent decoration-2 underline-offset-8 md:inline-flex md:items-center md:gap-2">
+          {c.rutas.cta.label}<Arrow />
+        </a>
+      </div>
+      <h2 data-reveal style="--d:100ms" class="mt-8 max-w-3xl text-4xl leading-[1.05] sm:text-5xl">{c.rutas.title}</h2>
+
+      <ol class="mt-14 grid gap-5 md:grid-cols-3">
+        {
+          c.rutas.items.map((r, i) => (
+            <li
+              data-reveal
+              style={`--d:${i * 120}ms`}
+              class="group flex flex-col justify-between rounded-3xl border border-ink/15 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-azul hover:shadow-xl hover:shadow-azul/10 md:min-h-72"
+            >
+              <span class="font-display text-sm font-semibold text-azul">0{i + 1}</span>
+              <div class="mt-16">
+                <h3 class="text-2xl">{r.name}</h3>
+                <p class="mt-3 text-lg text-ink/75">{r.question}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+
+      <div data-reveal class="relative mt-5 grid gap-8 overflow-hidden rounded-3xl bg-ink p-8 text-white md:grid-cols-[1fr_2fr] md:items-center md:p-12">
+        <Abstract variant="glow" />
+        <div class="relative flex items-center gap-3">
+          <span class="h-2 w-2 rounded-full bg-accent" aria-hidden="true"></span>
+          <h3 class="text-2xl">{c.rutas.tecnologia.name}</h3>
+        </div>
+        <p class="relative text-lg text-white/80 md:text-xl">{c.rutas.tecnologia.body}</p>
+      </div>
+
+      <a data-reveal href={c.rutas.cta.href} class="btn btn-primary mt-10">{c.rutas.cta.label}<Arrow /></a>
+    </div>
+  </section>
+
+  <!-- 4. Cómo trabajamos -->
+  <section class="section relative isolate overflow-hidden bg-azul text-white">
+    <Abstract variant="outline" word="60" />
+    <div class="container-fedes relative">
+      <p data-reveal class="eyebrow text-white/80">Cómo trabajamos</p>
+      <h2 data-reveal style="--d:100ms" class="mt-6 max-w-3xl text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{c.metodo.title}</h2>
+      <ol class="mt-16 grid gap-x-10 gap-y-12 md:grid-cols-2 lg:grid-cols-4">
+        {
+          c.metodo.steps.map((s, i) => (
+            <li data-reveal style={`--d:${i * 120}ms`} class="border-t border-white/40 pt-6">
+              <span class="font-display text-6xl font-extrabold leading-none text-white/35">{i + 1}</span>
+              <h3 class="mt-6 text-xl">{s.name}</h3>
+              <p class="mt-3 text-white/85">{s.body}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- 5. Casos -->
+  <section class="section relative isolate overflow-hidden bg-ink text-white">
+    <Abstract variant="arcs" />
+    <div class="container-fedes relative">
+      <div class="flex flex-col justify-between gap-8 md:flex-row md:items-end">
+        <div>
+          <p data-reveal class="eyebrow text-celeste">Casos</p>
+          <h2 data-reveal style="--d:100ms" class="mt-6 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{c.casos.title}</h2>
+          <p data-reveal style="--d:200ms" class="lead mt-6 max-w-xl text-white/75">{c.casos.body}</p>
+        </div>
+        <a data-reveal href={c.casos.cta.href} class="btn btn-outline-light self-start md:self-auto">{c.casos.cta.label}<Arrow /></a>
+      </div>
+
+      <ul class="mt-16 grid gap-5 lg:grid-cols-3">
+        {
+          c.casos.items.map((k, i) => (
+            <li data-reveal style={`--d:${i * 130}ms`}>
+              <a href={c.casos.cta.href} class="group flex h-full flex-col overflow-hidden rounded-3xl border border-white/15 bg-ink/60 backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:border-white/40">
+                <div class="relative aspect-[16/10] overflow-hidden">
+                  <Picture src={k.image} alt="" aria-hidden="true" formats={['avif', 'webp']} widths={[480, 800]} sizes="(min-width: 1024px) 33vw, 100vw" loading="lazy" decoding="async" pictureAttributes={{ class: 'block h-full w-full' }} class="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-110" />
+                  <div class="absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent"></div>
+                  <div class="absolute inset-x-0 top-0 flex items-center justify-between p-5 text-white">
+                    <span class="font-display text-sm font-semibold">0{i + 1}</span>
+                    <span class="pill !text-[10px] backdrop-blur-sm">{k.onboarding}</span>
+                  </div>
+                </div>
+                <div class="flex flex-1 flex-col p-8 pt-6">
+                  <p class="eyebrow text-celeste">{k.sector}</p>
+                  <p class="mt-6 min-h-6 font-display text-sm font-medium text-white/70">{k.prefix}</p>
+                  <p data-count class="font-display text-5xl font-extrabold leading-none text-white sm:text-6xl">{k.figure}</p>
+                  <p class="mt-6 flex-1 text-lg text-white/85">{k.headline}</p>
+                  <p class="mt-8 border-t border-white/15 pt-5 text-sm text-white/60">{c.casos.plazo}</p>
+                </div>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- 6. Por qué Fedes -->
+  <section class="section">
+    <div class="container-fedes">
+      <p data-reveal class="eyebrow text-azul">Por qué Fedes</p>
+      <h2 data-reveal style="--d:100ms" class="mt-6 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{c.principios.title}</h2>
+
+      <ul class="mt-14 grid gap-x-12 gap-y-10 md:grid-cols-2">
+        {
+          c.principios.items.map((p, i) => (
+            <li data-reveal style={`--d:${(i % 2) * 120}ms`} class="border-t border-ink/20 pt-6">
+              <h3 class="text-2xl">{p.name}</h3>
+              <p class="lead mt-3 text-ink/75">{p.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="mt-24">
+        <h3 data-reveal class="text-3xl sm:text-4xl">{c.principios.contraste.title}</h3>
+        <div data-reveal class="mt-10 overflow-hidden rounded-3xl border border-ink/15">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr class="font-display text-sm">
+                <th scope="col" class="w-1/2 bg-ink/[0.04] p-5 font-semibold text-ink/70 md:p-7">{c.principios.contraste.colTradicional}</th>
+                <th scope="col" class="w-1/2 bg-azul p-5 font-semibold text-white md:p-7">{c.principios.contraste.colFedes}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                c.principios.contraste.rows.map(([a, b]) => (
+                  <tr class="border-t border-ink/15 align-top">
+                    <td class="p-5 text-ink/70 md:p-7 md:text-lg">{a}</td>
+                    <td class="p-5 font-normal text-ink md:p-7 md:text-lg">{b}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Cierre -->
+  <CtaBand {...c.cierre} />
+</Base>

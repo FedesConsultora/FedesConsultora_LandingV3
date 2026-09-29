@@ -1,0 +1,42 @@
+---
+import { site, nav, legalLinks, contactChannels } from '../content/site';
+---
+
+<footer class="bg-ink text-white">
+  <div class="container-fedes py-16 md:py-20">
+    <div class="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div>
+        <img src={site.logo} alt="Fedes Consultora" width="2620" height="976" loading="lazy" class="h-16 w-auto" />
+        <p class="mt-4 max-w-xs text-sm text-white/70">{contactChannels.location}</p>
+      </div>
+
+      <nav aria-label="Pie de página">
+        <p class="eyebrow text-celeste">Menú</p>
+        <ul class="mt-5 space-y-3 font-display text-sm">
+          {nav.map((item) => <li><a href={item.href} class="hover:text-celeste">{item.label}</a></li>)}
+        </ul>
+      </nav>
+
+      <div>
+        <p class="eyebrow text-celeste">Contacto</p>
+        <ul class="mt-5 space-y-3 font-display text-sm">
+          <li><a href={contactChannels.whatsapp.href} class="hover:text-celeste">WhatsApp {contactChannels.whatsapp.label}</a></li>
+          <li><a href={contactChannels.email.href} class="hover:text-celeste">{contactChannels.email.label}</a></li>
+          <li><a href={contactChannels.linkedin.href} class="hover:text-celeste" rel="noopener" target="_blank">{contactChannels.linkedin.label}</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="eyebrow text-celeste">Legales</p>
+        <ul class="mt-5 space-y-3 font-display text-sm">
+          {legalLinks.map((item) => <li><a href={item.href} class="hover:text-celeste">{item.label}</a></li>)}
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-16 flex flex-col justify-between gap-3 border-t border-white/15 pt-6 text-xs text-white/60 md:flex-row">
+      <p class="eyebrow !text-[10px] !tracking-[0.3em]">Fedes Consultora</p>
+      <p>© {new Date().getFullYear()} Fedes Consultora. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</footer>

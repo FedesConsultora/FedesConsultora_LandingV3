@@ -1,0 +1,78 @@
+---
+// Fondo abstracto decorativo con la paleta de marca (líneas finas, arcos, letras en contorno y
+// resplandores). Va dentro de una sección `relative overflow-hidden`. Es solo decoración.
+interface Props {
+  variant?: 'arcs' | 'grid' | 'glow' | 'outline';
+  tone?: 'light' | 'dark'; // dark = sobre fondo oscuro o azul (trazos blancos)
+  word?: string; // solo para 'outline': palabra gigante en contorno
+  class?: string;
+}
+const { variant = 'arcs', tone = 'dark', word = '', class: className = '' } = Astro.props;
+const stroke = tone === 'dark' ? '#ffffff' : '#44718D';
+---
+
+<div aria-hidden="true" class:list={['pointer-events-none absolute inset-0 overflow-hidden', className]}>
+  {
+    (variant === 'arcs' || variant === 'glow') && (
+      <>
+        <div class="anim-drift absolute -right-40 -top-40 h-[42rem] w-[42rem] rounded-full bg-celeste/25 blur-[120px]" />
+        <div class="anim-drift absolute -bottom-52 -left-40 h-[38rem] w-[38rem] rounded-full bg-accent/15 blur-[130px]" style="animation-direction: alternate-reverse;" />
+      </>
+    )
+  }
+
+  {
+    variant === 'arcs' && (
+      <svg class="anim-drift absolute -right-[18%] top-1/2 h-[140%] w-auto -translate-y-1/2 opacity-[0.16]" viewBox="0 0 800 800" fill="none" stroke={stroke} stroke-width="1">
+        <circle cx="400" cy="400" r="120" />
+        <circle cx="400" cy="400" r="200" />
+        <circle cx="400" cy="400" r="280" />
+        <circle cx="400" cy="400" r="360" />
+        <circle cx="400" cy="400" r="440" />
+        <path d="M0 400h800M400 0v800" />
+      </svg>
+    )
+  }
+
+  {
+    variant === 'grid' && (
+      <>
+        <svg class="absolute inset-0 h-full w-full opacity-[0.12]" fill="none" stroke={stroke} stroke-width="1">
+          <defs>
+            <pattern id={`g-${tone}`} width="64" height="64" patternUnits="userSpaceOnUse">
+              <path d="M64 0H0V64" />
+            </pattern>
+            <radialGradient id={`m-${tone}`} cx="70%" cy="30%" r="80%">
+              <stop offset="0" stop-color="#fff" />
+              <stop offset="1" stop-color="#000" />
+            </radialGradient>
+            <mask id={`mk-${tone}`}><rect width="100%" height="100%" fill={`url(#m-${tone})`} /></mask>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#g-${tone})`} mask={`url(#mk-${tone})`} />
+        </svg>
+        <div class="anim-drift absolute -right-32 -top-32 h-[34rem] w-[34rem] rounded-full bg-celeste/20 blur-[110px]" />
+      </>
+    )
+  }
+
+  {
+    variant === 'outline' && word && (
+      <>
+        <div class="anim-drift absolute -bottom-40 -left-32 h-[36rem] w-[36rem] rounded-full bg-celeste/25 blur-[120px]" />
+        <svg class="absolute -right-6 bottom-[-8%] h-[85%] w-auto max-w-none opacity-[0.22]" viewBox="0 0 900 500" fill="none">
+          <text
+            x="900"
+            y="440"
+            text-anchor="end"
+            font-family="Inter Variable, Helvetica Neue, Arial, sans-serif"
+            font-weight="800"
+            font-size="520"
+            letter-spacing="-20"
+            stroke={stroke}
+            stroke-width="2"
+            fill="none">{word}</text>
+        </svg>
+      </>
+    )
+  }
+</div>

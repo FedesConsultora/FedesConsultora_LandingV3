@@ -1,0 +1,47 @@
+---
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+// Espacio para fotografía. Sin `src`, muestra un marcador visible [PENDIENTE].
+// Fotografía: imágenes corporativas y de negocios; sin fotos de clientes ni del equipo (docs/07).
+interface Props {
+  alt: string;
+  brief: string;
+  src?: ImageMetadata;
+  sizes?: string;
+  class?: string;
+  dark?: boolean;
+  eager?: boolean;
+}
+const { alt, brief, src, class: className = '', dark = false, eager = false, sizes = '(min-width: 1024px) 45vw, 100vw' } = Astro.props;
+---
+
+{
+  src ? (
+    <Picture
+      src={src}
+      alt={alt}
+      formats={['avif', 'webp']}
+      widths={[480, 800, 1200]}
+      sizes={sizes}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+      pictureAttributes={{ class: 'block h-full w-full' }}
+      class:list={['h-full w-full object-cover', className]}
+    />
+  ) : (
+    <div
+      role="img"
+      aria-label={alt}
+      class:list={[
+        'flex h-full w-full items-end p-5',
+        dark ? 'bg-white/10 text-white/80' : 'bg-azul/10 text-azul',
+        className,
+      ]}
+      style="background-image: repeating-linear-gradient(135deg, transparent 0 14px, color-mix(in srgb, currentColor 18%, transparent) 14px 15px);"
+    >
+      <p class="font-display text-[11px] font-semibold uppercase tracking-[0.18em]">
+        [PENDIENTE] Fotografía: {brief}
+      </p>
+    </div>
+  )
+}

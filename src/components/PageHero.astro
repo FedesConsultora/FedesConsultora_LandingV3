@@ -1,0 +1,66 @@
+---
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Arrow from './Arrow.astro';
+import Abstract from './Abstract.astro';
+interface Props {
+  eyebrow: string;
+  title: string;
+  body: string;
+  cta?: { label: string; href: string };
+  secondary?: { label: string; href: string };
+  image?: ImageMetadata; // foto de fondo a todo el ancho
+  position?: string; // object-position de la foto
+}
+const { eyebrow, title, body, cta, secondary, image, position = 'center' } = Astro.props;
+---
+
+<section class="relative isolate overflow-hidden bg-ink text-white">
+  {
+    image ? (
+      <>
+        <Picture
+          src={image}
+          alt=""
+          aria-hidden="true"
+          formats={['avif', 'webp']}
+          widths={[640, 1024, 1600, 2000]}
+          sizes="100vw"
+          loading="eager"
+          fetchpriority="high"
+          pictureAttributes={{ class: 'absolute inset-0 -z-20 block h-full w-full' }}
+          class="anim-kenburns h-full w-full object-cover"
+          style={`object-position:${position}`}
+        />
+        <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink/95 via-ink/75 to-ink/35" />
+        <div class="absolute inset-0 -z-10 bg-gradient-to-t from-ink/70 via-transparent to-ink/40" />
+      </>
+    ) : (
+      <Abstract variant="arcs" />
+    )
+  }
+
+  <div class="container-fedes pb-20 pt-36 md:pb-32 md:pt-52">
+    <h1 class="anim-rise max-w-5xl text-[2rem] font-bold leading-[1.1] sm:text-5xl lg:text-[3.5rem]" style="animation-delay:.1s">{title}</h1>
+    <p class="anim-rise lead mt-8 max-w-2xl text-white/85" style="animation-delay:.2s">{body}</p>
+    {
+      (cta || secondary) && (
+        <div class="anim-rise mt-10 flex flex-wrap gap-4" style="animation-delay:.3s">
+          {cta && (
+            <a href={cta.href} class="btn btn-light">
+              {cta.label}
+              <Arrow />
+            </a>
+          )}
+          {secondary && (
+            <a href={secondary.href} class="btn btn-outline-light">
+              {secondary.label}
+            </a>
+          )}
+        </div>
+      )
+    }
+  </div>
+  <div class="container-fedes"><div class="h-px bg-white/25"></div></div>
+  <p class="eyebrow container-fedes py-5 text-[10px] text-white/60">{eyebrow}</p>
+</section>

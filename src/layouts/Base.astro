@@ -1,0 +1,176 @@
+---
+import '@fontsource-variable/inter';
+import '@fontsource/source-serif-4/300.css';
+import '@fontsource/source-serif-4/400.css';
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_URL, organization, website, breadcrumb, graph } from '../lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  // Vista previa en Vercel: no indexar hasta el lanzamiento (PUBLIC_INDEXABLE=true).
+  noindex?: boolean;
+  // Nombre de la página para las migas de pan (BreadcrumbList). Sin él, no se agrega.
+  crumb?: string;
+  // Nodos schema.org extra de la página (Service, ContactPage, etc.).
+  schema?: object[];
+  ogImage?: string;
+  // El panel /admin no lleva el menú ni el pie públicos: es una herramienta interna, no una página de marketing.
+  bare?: boolean;
+}
+const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true';
+const { title, description, noindex = !indexable, crumb, schema = [], ogImage = '/og-fedes.jpg', bare = false } = Astro.props;
+
+// Google Analytics 4: mide tráfico (páginas, origen, dispositivo). Nunca se le manda
+// información de los leads (nombre, mail, etc.); eso vive solo en el panel /admin.
+const gaId = import.meta.env.PUBLIC_GA_ID;
+const isAdminPage = Astro.url.pathname.startsWith('/admin');
+
+const path = Astro.url.pathname;
+const canonical = `${SITE_URL}${path === '/' ? '/' : path.replace(/\/$/, '')}`;
+const ogUrl = ogImage.startsWith('http') ? ogImage : `${SITE_URL}${ogImage}`;
+const jsonld = graph(
+  organization,
+  website,
+  ...(crumb ? [breadcrumb([{ name: 'Inicio', path: '/' }, { name: crumb, path }])] : []),
+  ...schema,
+);
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1D1D1B" />
+    <meta property="og:site_name" content="Fedes Consultora" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Fedes Consultora" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogUrl} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonld)} />
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+    {
+      gaId && !isAdminPage && (
+        <>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+          <script define:vars={{ gaId }}>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+              dataLayer.push(arguments);
+            }
+            window.gtag = gtag;
+            gtag('js', new Date());
+            gtag('config', gaId);
+          </script>
+        </>
+      )
+    }
+  </head>
+  <body>
+    <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-white focus:px-4 focus:py-2">
+      Ir al contenido
+    </a>
+    {!bare && <Header />}
+    <main id="contenido">
+      <slot />
+    </main>
+    {!bare && <Footer />}
+
+    <script>
+      // Aparición suave de los bloques marcados con data-reveal.
+      const items = document.querySelectorAll<HTMLElement>('[data-reveal]');
+      if (!('IntersectionObserver' in window)) {
+        items.forEach((el) => el.classList.add('is-visible'));
+      } else {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                e.target.classList.add('is-visible');
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+        );
+        items.forEach((el) => io.observe(el));
+      }
+
+      // Cifras que suben hasta su valor. El texto final es siempre el original.
+      const counters = document.querySelectorAll<HTMLElement>('[data-count]');
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (counters.length && !reduce && 'IntersectionObserver' in window) {
+        const co = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (!e.isIntersecting) return;
+              const el = e.target as HTMLElement;
+              co.unobserve(el);
+              const final = el.textContent ?? '';
+              const m = final.match(/^(\D*)([\d.,]+)(\D*)$/);
+              if (!m) return;
+              const [, pre, num, post] = m;
+              const decimals = num.includes(',') ? num.split(',')[1].length : 0;
+              const target = parseFloat(num.replace(',', '.'));
+              const t0 = performance.now();
+              const dur = 1400;
+              const tick = (now: number) => {
+                const p = Math.min((now - t0) / dur, 1);
+                const v = target * (1 - Math.pow(1 - p, 3));
+                el.textContent = p >= 1 ? final : pre + v.toFixed(decimals).replace('.', ',') + post;
+                if (p < 1) requestAnimationFrame(tick);
+              };
+              el.textContent = pre + (0).toFixed(decimals).replace('.', ',') + post;
+              requestAnimationFrame(tick);
+            });
+          },
+          { threshold: 0.6 },
+        );
+        counters.forEach((el) => co.observe(el));
+      }
+
+      // Eventos de Google Analytics: un solo listener para todo el sitio, sin tocar cada botón.
+      document.addEventListener('click', (e) => {
+        const gtag = (window as any).gtag;
+        if (typeof gtag !== 'function') return;
+        const target = e.target as HTMLElement;
+
+        const cta = target.closest<HTMLAnchorElement>('a[href^="/contacto"]');
+        if (cta) {
+          gtag('event', 'cta_agendar', {
+            label: cta.textContent?.trim().slice(0, 60),
+            page_path: location.pathname,
+          });
+        }
+
+        const verDetalle = target.closest<HTMLAnchorElement>('nav[aria-label="Ir a una ruta"] a');
+        if (verDetalle) {
+          gtag('event', 'ver_detalle_ruta', {
+            ruta: verDetalle.querySelector('h3')?.textContent?.trim(),
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

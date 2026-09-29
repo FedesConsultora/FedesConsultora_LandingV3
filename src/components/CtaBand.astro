@@ -1,0 +1,19 @@
+---
+import Arrow from './Arrow.astro';
+import Abstract from './Abstract.astro';
+interface Props {
+  title: string;
+  body: string;
+  cta: { label: string; href: string };
+}
+const { title, body, cta } = Astro.props;
+---
+
+<section class="section relative isolate overflow-hidden bg-azul text-white">
+  <Abstract variant="arcs" />
+  <div class="container-fedes max-w-4xl text-center">
+    <h2 data-reveal class="text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{title}</h2>
+    <p data-reveal style="--d:120ms" class="lead mx-auto mt-8 max-w-2xl text-white/90">{body}</p>
+    <a data-reveal style="--d:240ms" href={cta.href} class="btn btn-light mt-10">{cta.label}<Arrow /></a>
+  </div>
+</section>

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fedes-web",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-lc", "export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use --lts >/dev/null; npm run dev -- --port 4321"],
+      "port": 4321
+    },
+    {
+      "name": "insumos-doc",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8934", "--directory", "/private/tmp/claude-502/-Users-jperozo-Documents-fedes-web/ca2d17e5-2006-4559-ade0-a3c59d151003/scratchpad"],
+      "port": 8934
+    }
+  ]
+}

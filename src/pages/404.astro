@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+---
+
+<!-- [CONFIRMAR] Textos de la 404: no están en los docs, redacción provisoria. -->
+<Base title="Página no encontrada | Fedes Consultora" description="La página que buscás no existe o cambió de lugar." noindex>
+  <PageHero
+    eyebrow="Error 404"
+    title="No encontramos esta página."
+    body="Puede que haya cambiado de lugar. Podés volver al inicio."
+    cta={{ label: 'Volver al inicio', href: '/' }}
+  />
+</Base>
