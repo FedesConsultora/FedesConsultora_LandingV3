@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
-import { db, hasDb as dbConfigured } from '../../lib/db';
+import { hasDb as dbConfigured } from '../../lib/db';
+import { registrarFormulario } from '../../lib/leads';
 
 // Único endpoint del formulario de Contacto. Guarda el lead en la base (fuente de verdad
 // para el panel /admin) y, además, intenta avisar por mail con Resend. Si el mail falla,
@@ -87,15 +88,12 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  // 2. Guardar el lead en la base, sea cual sea el resultado del mail.
+  // 2. Guardar el lead en el pipeline, sea cual sea el resultado del mail. Si el email ya existe,
+  // el envío se suma a ese lead en lugar de duplicarlo (ver registrarFormulario).
   let dbOk = false;
   if (hasDb) {
     try {
-      await db()`
-        INSERT INTO leads (nombre, empresa, cargo, email, whatsapp, tamano, resolver, ruta_referido, comentarios, resend_status)
-        VALUES (${fields.nombre}, ${fields.empresa}, ${fields.cargo}, ${fields.email}, ${fields.whatsapp},
-                ${fields.tamano}, ${fields.resolver}, ${fields.ruta_referido}, ${fields.comentarios}, ${resendStatus})
-      `;
+      await registrarFormulario({ ...fields, resend_status: resendStatus });
       dbOk = true;
     } catch (e) {
       console.error('[contacto] Error al guardar el lead en la base', e);

@@ -124,4 +124,20 @@ section[id] {
   .lead {
     @apply text-lg leading-relaxed md:text-xl;
   }
+  /* Panel de administración: tarjetas y formularios */
+  .admin-card {
+    @apply rounded-2xl border border-ink/10 bg-white p-6;
+  }
+  .admin-label {
+    @apply block font-display text-xs font-semibold uppercase tracking-wide text-ink/60;
+  }
+  .admin-input {
+    @apply mt-1.5 w-full rounded-lg border border-ink/20 bg-white px-3 py-2 font-display text-sm text-ink focus:border-azul focus:outline-none;
+  }
+  .admin-error {
+    @apply mt-1 font-display text-xs text-[#a8412b];
+  }
+  .admin-tag {
+    @apply inline-flex items-center rounded-full bg-ink/[0.06] px-2.5 py-1 font-display text-[11px] font-semibold text-ink/70;
+  }
 }

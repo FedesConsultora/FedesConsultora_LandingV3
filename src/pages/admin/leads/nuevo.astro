@@ -1,0 +1,49 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import LeadForm from '../../../components/admin/LeadForm.astro';
+import { LeadError, crearLead, listarSectores } from '../../../lib/leads';
+import { parseLead, type Errores } from '../../../lib/pipeline';
+
+const sectores = await listarSectores();
+let valores: Record<string, unknown> = {};
+let errores: Errores = {};
+let error: string | null = null;
+
+// El middleware ya validó la sesión y el token CSRF de este POST.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const parsed = parseLead(form, new Set(sectores.map((s) => s.id)));
+  valores = Object.fromEntries(form);
+  errores = parsed.errores;
+  if (parsed.data) {
+    try {
+      const id = await crearLead(parsed.data, Astro.locals.admin!.id);
+      return Astro.redirect(`/admin/leads/${id}?creado=1`, 303);
+    } catch (e) {
+      if (!(e instanceof LeadError)) throw e;
+      error = e.message;
+    }
+  }
+}
+---
+
+<AdminLayout title="Nuevo lead">
+  <a href="/admin" class="font-display text-sm text-ink/50 hover:text-azul">← Leads</a>
+  <h1 class="mt-3 text-2xl font-bold md:text-3xl">Nuevo lead</h1>
+  <p class="mt-2 max-w-2xl text-ink/60">
+    Para leads que contacta el equipo. Entra al pipeline como «Identificado». Los que completan el formulario de Contacto
+    de la web se cargan solos.
+  </p>
+
+  {error && <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-4 text-sm text-[#a8412b]">{error}</p>}
+  {
+    Object.keys(errores).length > 0 && (
+      <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-4 text-sm text-[#a8412b]">Revisá los campos marcados.</p>
+    )
+  }
+
+  <div class="admin-card mt-8">
+    <LeadForm valores={valores} sectores={sectores} errores={errores} submit="Crear lead" />
+  </div>
+</AdminLayout>

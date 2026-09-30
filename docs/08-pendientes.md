@@ -202,6 +202,18 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Antes de publicar este cambio en producción:** aplicar la migración 002 en `main` y crear al menos un usuario ahí con `npm run admin:crear`; si no, el panel queda sin acceso. `SESSION_SECRET` ya existe en Vercel. `ADMIN_USER` y `ADMIN_PASSWORD_HASH` dejan de usarse y se pueden borrar de Vercel después del deploy.
 - **Pendiente:** no hay pantalla para dar de baja administradores. Por ahora se hace desde la base (`activo = false`).
 
+## Registro de la construcción (portal, fase 1, paso 3: pipeline, 29/09)
+
+- **Un lead por persona:** `leads` pasa a ser único por email. Cada envío del formulario de Contacto se guarda aparte en `formularios`, así no se pierde ningún envío.
+- **Producción tiene 3 leads con el mismo email** (parecen envíos de prueba). Al aplicar la migración 003 en `main` se fusionan en uno solo, con la fecha del primer envío y los datos del último; los 3 envíos quedan en `formularios`. Probado en `desarrollo` con datos ficticios que reproducen el caso.
+- **Leads del formulario web:** entran como «Respondió», con fuente «Web» y el consentimiento registrado (texto de la casilla: «Acepto la Política de Privacidad»). Si el email ya existe, el envío se suma a ese lead: completa datos vacíos, actualiza «qué quiere resolver» y renueva el consentimiento, sin pisar lo que cargó el equipo. Si el lead estaba en «Identificado», «Contactado» o «Perdido», vuelve a «Respondió».
+- **Alta manual:** entra como «Identificado». Email opcional (los contactos de LinkedIn pueden no tenerlo), pero único si se carga.
+- **Registro de auditoría desde ahora** (alta, edición, cambio de estado), aunque su pantalla es de la fase 4. En la edición guarda qué campos cambiaron, no sus valores.
+- **Corregido:** en `/admin`, los datos del CSV van dentro de la página y un nombre malicioso enviado desde el formulario público podía inyectar código en el panel. También se corrigió el gráfico de leads por día (mezclaba fechas UTC y locales) y su desborde en celulares.
+- **Lista de países provisoria** (Argentina, países de la región, España, Estados Unidos, Otro) mientras se define el alcance geográfico. **Ciudad** queda como texto libre: la especificación pide lista controlada, pero no hay una definida.
+- **Pendiente de decidir:** si un lead que pidió la baja vuelve a completar el formulario web, hoy se renueva el consentimiento pero la baja se mantiene. Definir con el abogado si el nuevo envío la levanta.
+- **Quedan para la fase 3:** tablero con arrastrar y soltar, filtros completos, puntaje de encaje, edición de la lista de sectores y recordatorios de próximo paso (hoy solo se marcan como vencidos en la lista).
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

@@ -1,0 +1,130 @@
+---
+// Campos del lead, compartidos por el alta manual y la ficha. Envía un POST normal (sin JS)
+// a la misma página, con el token CSRF en un campo oculto.
+import { FUENTES, PAISES, RESOLVER, TAMANOS, aInputFechaHora, fechaISO, type Errores } from '../../lib/pipeline';
+import type { Sector } from '../../lib/leads';
+
+interface Props {
+  valores: Record<string, unknown>;
+  sectores: Sector[];
+  errores?: Errores;
+  submit: string;
+}
+const { valores: v, sectores, errores = {}, submit } = Astro.props;
+const csrf = Astro.locals.admin?.csrf ?? '';
+const val = (k: string) => (v[k] === null || v[k] === undefined ? '' : String(v[k]));
+---
+
+<form method="post" class="space-y-8" novalidate>
+  <input type="hidden" name="csrf" value={csrf} />
+  <input type="hidden" name="accion" value="guardar" />
+
+  <fieldset class="grid gap-5 md:grid-cols-2">
+    <legend class="eyebrow mb-4 text-ink/50">Persona y empresa</legend>
+    <div>
+      <label for="nombre" class="admin-label">Nombre y apellido *</label>
+      <input id="nombre" name="nombre" required maxlength="200" value={val('nombre')} class="admin-input" />
+      {errores.nombre && <p class="admin-error">{errores.nombre}</p>}
+    </div>
+    <div>
+      <label for="cargo" class="admin-label">Cargo</label>
+      <input id="cargo" name="cargo" maxlength="200" value={val('cargo')} class="admin-input" />
+    </div>
+    <div>
+      <label for="empresa" class="admin-label">Empresa *</label>
+      <input id="empresa" name="empresa" required maxlength="200" value={val('empresa')} class="admin-input" />
+      {errores.empresa && <p class="admin-error">{errores.empresa}</p>}
+    </div>
+    <div>
+      <label for="sitio_web" class="admin-label">Sitio web</label>
+      <input id="sitio_web" name="sitio_web" maxlength="500" value={val('sitio_web')} placeholder="empresa.com.ar" class="admin-input" />
+      {errores.sitio_web && <p class="admin-error">{errores.sitio_web}</p>}
+    </div>
+    <div>
+      <label for="sector_id" class="admin-label">Sector</label>
+      <select id="sector_id" name="sector_id" class="admin-input">
+        <option value="">Sin dato</option>
+        {sectores.map((s) => <option value={s.id} selected={val('sector_id') === String(s.id)}>{s.nombre}</option>)}
+      </select>
+      {errores.sector_id && <p class="admin-error">{errores.sector_id}</p>}
+    </div>
+    <div>
+      <label for="tamano" class="admin-label">Tamaño</label>
+      <select id="tamano" name="tamano" class="admin-input">
+        {TAMANOS.map((t) => <option value={t.codigo} selected={(val('tamano') || 'desconocido') === t.codigo}>{t.etiqueta}</option>)}
+      </select>
+      {errores.tamano && <p class="admin-error">{errores.tamano}</p>}
+    </div>
+    <div>
+      <label for="pais" class="admin-label">País</label>
+      <select id="pais" name="pais" class="admin-input">
+        <option value="">Sin dato</option>
+        {PAISES.map((p) => <option value={p} selected={val('pais') === p}>{p}</option>)}
+      </select>
+      {errores.pais && <p class="admin-error">{errores.pais}</p>}
+    </div>
+    <div>
+      <label for="ciudad" class="admin-label">Ciudad</label>
+      <input id="ciudad" name="ciudad" maxlength="100" value={val('ciudad')} class="admin-input" />
+    </div>
+  </fieldset>
+
+  <fieldset class="grid gap-5 md:grid-cols-2">
+    <legend class="eyebrow mb-4 text-ink/50">Contacto</legend>
+    <div>
+      <label for="email" class="admin-label">Email</label>
+      <input id="email" name="email" type="email" maxlength="320" value={val('email')} class="admin-input" />
+      {errores.email && <p class="admin-error">{errores.email}</p>}
+    </div>
+    <div>
+      <label for="whatsapp" class="admin-label">Teléfono o WhatsApp</label>
+      <input id="whatsapp" name="whatsapp" maxlength="50" value={val('whatsapp')} class="admin-input" />
+    </div>
+    <div class="md:col-span-2">
+      <label for="linkedin_url" class="admin-label">Perfil de LinkedIn</label>
+      <input id="linkedin_url" name="linkedin_url" maxlength="500" value={val('linkedin_url')} placeholder="https://www.linkedin.com/in/..." class="admin-input" />
+      {errores.linkedin_url && <p class="admin-error">{errores.linkedin_url}</p>}
+    </div>
+  </fieldset>
+
+  <fieldset class="grid gap-5 md:grid-cols-2">
+    <legend class="eyebrow mb-4 text-ink/50">Seguimiento</legend>
+    <div>
+      <label for="fuente" class="admin-label">Fuente *</label>
+      <select id="fuente" name="fuente" required class="admin-input">
+        <option value="">Elegí una opción</option>
+        {FUENTES.map((f) => <option value={f.codigo} selected={val('fuente') === f.codigo}>{f.etiqueta}</option>)}
+      </select>
+      {errores.fuente && <p class="admin-error">{errores.fuente}</p>}
+    </div>
+    <div>
+      <label for="resolver" class="admin-label">Qué quiere resolver</label>
+      <select id="resolver" name="resolver" class="admin-input">
+        <option value="">Sin dato</option>
+        {RESOLVER.map((r) => <option value={r} selected={val('resolver') === r}>{r}</option>)}
+      </select>
+      {errores.resolver && <p class="admin-error">{errores.resolver}</p>}
+    </div>
+    <div>
+      <label for="fecha_sesion" class="admin-label">Sesión de diagnóstico (hora de Buenos Aires)</label>
+      <input id="fecha_sesion" name="fecha_sesion" type="datetime-local" value={aInputFechaHora(v.fecha_sesion as Date | null)} class="admin-input" />
+      {errores.fecha_sesion && <p class="admin-error">{errores.fecha_sesion}</p>}
+    </div>
+    <div></div>
+    <div>
+      <label for="proximo_paso" class="admin-label">Próximo paso</label>
+      <input id="proximo_paso" name="proximo_paso" maxlength="500" value={val('proximo_paso')} class="admin-input" />
+    </div>
+    <div>
+      <label for="fecha_proximo_paso" class="admin-label">Fecha del próximo paso</label>
+      <input id="fecha_proximo_paso" name="fecha_proximo_paso" type="date" value={fechaISO(v.fecha_proximo_paso as Date | null)} class="admin-input" />
+      {errores.fecha_proximo_paso && <p class="admin-error">{errores.fecha_proximo_paso}</p>}
+    </div>
+    <div class="md:col-span-2">
+      <label for="notas" class="admin-label">Notas</label>
+      <textarea id="notas" name="notas" rows="5" maxlength="10000" class="admin-input">{val('notas')}</textarea>
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">{submit}</button>
+</form>

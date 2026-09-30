@@ -1,37 +1,31 @@
 ---
 export const prerender = false;
-import Base from '../../layouts/Base.astro';
-import { site } from '../../content/site';
+import AdminLayout from '../../components/admin/AdminLayout.astro';
 import { db, hasDb } from '../../lib/db';
+import { contarPorEstado, listarLeads, type LeadFila } from '../../lib/leads';
+import { ESTADOS, FUENTES, TAMANOS, etiqueta, fechaISO } from '../../lib/pipeline';
 
-type Lead = {
-  id: number;
-  created_at: string;
-  nombre: string;
-  empresa: string;
-  // Cargo y WhatsApp son opcionales desde el 29/09 (se sacaron del formulario, ver docs/08-pendientes.md).
-  cargo: string | null;
-  email: string;
-  whatsapp: string | null;
-  tamano: string | null;
-  resolver: string;
-  ruta_referido: string | null;
-  comentarios: string | null;
-  resend_status: 'sent' | 'failed' | 'skipped';
-};
+const filtro = ESTADOS.some((e) => e.codigo === Astro.url.searchParams.get('estado'))
+  ? Astro.url.searchParams.get('estado')!
+  : undefined;
 
-let leads: Lead[] = [];
+let todos: LeadFila[] = [];
+let leads: LeadFila[] = [];
+let porEstado: Record<string, number> = {};
+let fallosAviso = 0;
 let dbError: string | null = null;
 
 if (hasDb()) {
   try {
-    const rows = (await db()`SELECT * FROM leads ORDER BY created_at DESC LIMIT 300`) as Lead[];
-    // El driver devuelve created_at como Date, no como texto: se normaliza a ISO acá,
-    // así el resto de la página siempre trabaja con un string.
-    leads = rows.map((r) => ({ ...r, created_at: new Date(r.created_at).toISOString() }));
+    [todos, porEstado, [{ n: fallosAviso }]] = await Promise.all([
+      listarLeads(),
+      contarPorEstado(),
+      db()`SELECT count(*)::int AS n FROM formularios WHERE resend_status = 'failed'`,
+    ]);
+    leads = filtro ? todos.filter((l) => l.estado === filtro) : todos;
   } catch (e) {
     console.error('[admin] Error de conexión a la base', e);
-    dbError = 'No pudimos conectar con la base de datos. Revisá que la tabla "leads" exista (npm run db:migrate).';
+    dbError = 'No pudimos conectar con la base de datos. Revisá que las migraciones estén aplicadas (npm run db:migrate).';
   }
 } else {
   dbError = 'Todavía no hay una base de datos conectada (falta POSTGRES_URL).';
@@ -39,188 +33,191 @@ if (hasDb()) {
 
 const now = Date.now();
 const day = 24 * 60 * 60 * 1000;
-const inLast = (iso: string, ms: number) => now - new Date(iso).getTime() < ms;
+const inLast = (d: Date, ms: number) => now - new Date(d).getTime() < ms;
 
-const totalLeads = leads.length;
-const leadsWeek = leads.filter((l) => inLast(l.created_at, 7 * day)).length;
-const leadsMonth = leads.filter((l) => inLast(l.created_at, 30 * day)).length;
-const failed = leads.filter((l) => l.resend_status === 'failed').length;
+const leadsWeek = todos.filter((l) => inLast(l.created_at, 7 * day)).length;
+const leadsMonth = todos.filter((l) => inLast(l.created_at, 30 * day)).length;
 
 const porResolver = Object.entries(
-  leads.reduce<Record<string, number>>((acc, l) => {
-    acc[l.resolver] = (acc[l.resolver] ?? 0) + 1;
+  todos.reduce<Record<string, number>>((acc, l) => {
+    if (l.resolver) acc[l.resolver] = (acc[l.resolver] ?? 0) + 1;
     return acc;
   }, {}),
 ).sort((a, b) => b[1] - a[1]);
 const maxResolver = Math.max(1, ...porResolver.map(([, n]) => n));
 
-// Últimos 14 días, para el mini gráfico de barras.
+// Fecha AAAA-MM-DD en hora de Buenos Aires (el servidor corre en UTC).
+const TZ = 'America/Argentina/Buenos_Aires';
+const diaAR = (d: Date | number) => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
+
+// Últimos 14 días, para el mini gráfico de barras (leads nuevos por día).
 const days = Array.from({ length: 14 }, (_, i) => {
   const d = new Date(now - (13 - i) * day);
-  const key = d.toISOString().slice(0, 10);
-  const count = leads.filter((l) => l.created_at.slice(0, 10) === key).length;
-  return { key, count, label: d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) };
+  const key = diaAR(d);
+  const count = todos.filter((l) => diaAR(l.created_at) === key).length;
+  return { key, count, label: d.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit' }) };
 });
 const maxDay = Math.max(1, ...days.map((d) => d.count));
 
-const statusLabel: Record<Lead['resend_status'], string> = {
-  sent: 'Enviado',
-  failed: 'Falló el envío',
-  skipped: 'Sin enviar (vista previa)',
-};
+const hoy = diaAR(now);
+const fecha = (d: Date) => new Date(d).toLocaleDateString('es-AR', { timeZone: TZ });
+
+// Para la descarga en CSV: los leads de la vista actual, con etiquetas legibles.
+const csvRows = leads.map((l) => ({
+  creado: new Date(l.created_at).toISOString(),
+  empresa: l.empresa,
+  nombre: l.nombre,
+  cargo: l.cargo,
+  email: l.email,
+  whatsapp: l.whatsapp,
+  linkedin: l.linkedin_url,
+  sitio_web: l.sitio_web,
+  pais: l.pais,
+  ciudad: l.ciudad,
+  sector: l.sector,
+  tamano: etiqueta(TAMANOS, l.tamano),
+  fuente: etiqueta(FUENTES, l.fuente),
+  estado: etiqueta(ESTADOS, l.estado),
+  resolver: l.resolver,
+  proximo_paso: l.proximo_paso,
+  fecha_proximo_paso: fechaISO(l.fecha_proximo_paso),
+}));
 ---
 
-<Base title={`Panel | ${site.name}`} description="Panel de administración." noindex bare>
-  <div class="min-h-[100svh] bg-ink/[0.02]">
-    <header class="border-b border-ink/10 bg-ink text-white">
-      <div class="container-fedes flex h-16 items-center justify-between md:h-20">
-        <img src={site.logo} alt={site.name} width="2620" height="976" class="h-8 w-auto" />
-        <div class="flex items-center gap-6">
-          <a href="https://analytics.google.com" target="_blank" rel="noopener" class="font-display text-sm font-medium text-white/75 hover:text-celeste">
-            Ver tráfico en Google Analytics
-          </a>
-          <span class="hidden font-display text-sm text-white/60 sm:inline">{Astro.locals.admin?.nombre}</span>
-          <button id="logout" type="button" class="font-display text-sm font-semibold text-white hover:text-celeste">Salir</button>
-        </div>
-      </div>
-    </header>
-
-    <main class="container-fedes py-10 md:py-14">
-      <h1 class="text-2xl font-bold md:text-3xl">Leads de la sesión de diagnóstico</h1>
-
-      {
-        dbError && (
-          <p class="mt-6 rounded-xl px-5 py-4 text-sm" style="border:1px solid #8f5f16; color:#8f5f16; background:#faf0da">
-            {dbError}
-          </p>
-        )
-      }
-
-      <!-- Resumen -->
-      <div class="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-ink/10 bg-ink/10 md:grid-cols-4">
-        <div class="bg-white p-6"><p class="eyebrow text-ink/50">Total</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{totalLeads}</p></div>
-        <div class="bg-white p-6"><p class="eyebrow text-ink/50">Últimos 7 días</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{leadsWeek}</p></div>
-        <div class="bg-white p-6"><p class="eyebrow text-ink/50">Últimos 30 días</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{leadsMonth}</p></div>
-        <div class="bg-white p-6">
-          <p class="eyebrow text-ink/50">Fallos de envío</p>
-          <p class:list={['mt-2 font-display text-3xl font-extrabold', failed > 0 ? 'text-[#a8412b]' : 'text-azul']}>{failed}</p>
-        </div>
-      </div>
-
-      <div class="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <!-- Últimos 14 días -->
-        <div class="rounded-2xl border border-ink/10 bg-white p-6">
-          <p class="eyebrow text-ink/50">Leads por día, últimos 14 días</p>
-          <div class="mt-6 flex h-32 items-end gap-2">
-            {
-              days.map((d) => (
-                <div class="flex flex-1 flex-col items-center gap-2" title={`${d.label}: ${d.count}`}>
-                  <div class="w-full rounded-t bg-azul" style={`height:${Math.max(4, (d.count / maxDay) * 100)}px`} />
-                  <span class="font-mono text-[10px] text-ink/40">{d.label}</span>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-
-        <!-- Por ruta -->
-        <div class="rounded-2xl border border-ink/10 bg-white p-6">
-          <p class="eyebrow text-ink/50">Qué quieren resolver</p>
-          <div class="mt-6 space-y-4">
-            {
-              porResolver.length === 0 && <p class="text-sm text-ink/50">Todavía no hay leads.</p>
-            }
-            {
-              porResolver.map(([name, n]) => (
-                <div>
-                  <div class="flex justify-between text-sm"><span>{name}</span><span class="font-semibold">{n}</span></div>
-                  <div class="mt-1 h-2 rounded-full bg-ink/10">
-                    <div class="h-2 rounded-full bg-celeste" style={`width:${(n / maxResolver) * 100}%`} />
-                  </div>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      </div>
-
-      <!-- Tabla -->
-      <div class="mt-8 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Últimos leads</h2>
-        <button id="export-csv" type="button" class="btn btn-outline-dark !py-2 !text-xs">Descargar CSV</button>
-      </div>
-
-      <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
-        <table class="w-full min-w-[900px] border-collapse text-sm">
-          <thead>
-            <tr class="border-b border-ink/10 bg-ink/[0.03] text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
-              <th class="p-3">Fecha</th>
-              <th class="p-3">Nombre</th>
-              <th class="p-3">Empresa</th>
-              <th class="p-3">Cargo</th>
-              <th class="p-3">Contacto</th>
-              <th class="p-3">Ruta</th>
-              <th class="p-3">Tamaño</th>
-              <th class="p-3">Envío</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              leads.map((l) => (
-                <tr class="border-b border-ink/5 align-top hover:bg-ink/[0.02]">
-                  <td class="whitespace-nowrap p-3 text-ink/60">{new Date(l.created_at).toLocaleString('es-AR')}</td>
-                  <td class="p-3 font-medium">{l.nombre}</td>
-                  <td class="p-3">{l.empresa}</td>
-                  <td class="p-3">{l.cargo || '—'}</td>
-                  <td class="p-3">
-                    <a class="text-azul underline" href={`mailto:${l.email}`}>{l.email}</a>
-                    {l.whatsapp && (
-                      <>
-                        <br />
-                        <span class="text-ink/60">{l.whatsapp}</span>
-                      </>
-                    )}
-                  </td>
-                  <td class="p-3">{l.resolver}{l.ruta_referido && l.ruta_referido !== l.resolver && <span class="block text-xs text-ink/40">vino por: {l.ruta_referido}</span>}</td>
-                  <td class="p-3">{l.tamano || '—'}</td>
-                  <td class="p-3">
-                    <span
-                      class:list={[
-                        'rounded-full px-2 py-1 text-[11px] font-semibold',
-                        l.resend_status === 'sent' && 'bg-[#e9eff3] text-[#2f5069]',
-                        l.resend_status === 'failed' && 'bg-[#fbeae3] text-[#a8412b]',
-                        l.resend_status === 'skipped' && 'bg-ink/10 text-ink/60',
-                      ]}
-                    >
-                      {statusLabel[l.resend_status]}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            }
-            {
-              leads.length === 0 && !dbError && (
-                <tr><td colspan="8" class="p-8 text-center text-ink/50">Todavía no hay leads.</td></tr>
-              )
-            }
-          </tbody>
-        </table>
-      </div>
-    </main>
+<AdminLayout title="Leads">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <h1 class="text-2xl font-bold md:text-3xl">Leads</h1>
+    <a href="/admin/leads/nuevo" class="btn btn-primary !py-2.5">Nuevo lead</a>
   </div>
 
-  <script type="application/json" id="leads-data" set:html={JSON.stringify(leads)} />
-  <script>
-    document.getElementById('logout')?.addEventListener('click', async () => {
-      const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-      await fetch('/api/admin/logout', { method: 'POST', headers: { 'x-csrf-token': csrf } });
-      location.href = '/admin/login';
-    });
+  {
+    dbError && (
+      <p class="mt-6 rounded-xl px-5 py-4 text-sm" style="border:1px solid #8f5f16; color:#8f5f16; background:#faf0da">
+        {dbError}
+      </p>
+    )
+  }
 
+  <!-- Resumen -->
+  <div class="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-ink/10 bg-ink/10 md:grid-cols-4">
+    <div class="bg-white p-6"><p class="eyebrow text-ink/50">Total</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{todos.length}</p></div>
+    <div class="bg-white p-6"><p class="eyebrow text-ink/50">Nuevos, 7 días</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{leadsWeek}</p></div>
+    <div class="bg-white p-6"><p class="eyebrow text-ink/50">Nuevos, 30 días</p><p class="mt-2 font-display text-3xl font-extrabold text-azul">{leadsMonth}</p></div>
+    <div class="bg-white p-6">
+      <p class="eyebrow text-ink/50">Fallos del aviso por mail</p>
+      <p class:list={['mt-2 font-display text-3xl font-extrabold', fallosAviso > 0 ? 'text-[#a8412b]' : 'text-azul']}>{fallosAviso}</p>
+    </div>
+  </div>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+    <div class="admin-card">
+      <p class="eyebrow text-ink/50">Leads nuevos por día, últimos 14 días</p>
+      <div class="mt-6 flex h-32 items-end gap-2">
+        {
+          days.map((d) => (
+            <div class="flex min-w-0 flex-1 flex-col items-center gap-2" title={`${d.label}: ${d.count}`}>
+              <div class="w-full rounded-t bg-azul" style={`height:${Math.max(4, (d.count / maxDay) * 100)}px`} />
+              <span class="hidden font-mono text-[10px] text-ink/40 sm:block">{d.label}</span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <p class="eyebrow text-ink/50">Qué quieren resolver</p>
+      <div class="mt-6 space-y-4">
+        {porResolver.length === 0 && <p class="text-sm text-ink/50">Todavía no hay datos.</p>}
+        {
+          porResolver.map(([name, n]) => (
+            <div>
+              <div class="flex justify-between text-sm"><span>{name}</span><span class="font-semibold">{n}</span></div>
+              <div class="mt-1 h-2 rounded-full bg-ink/10">
+                <div class="h-2 rounded-full bg-celeste" style={`width:${(n / maxResolver) * 100}%`} />
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="mt-10 flex flex-wrap items-center justify-between gap-4">
+    <h2 class="text-lg font-semibold">Pipeline</h2>
+    <button id="export-csv" type="button" class="btn btn-outline-dark !py-2 !text-xs">Descargar CSV</button>
+  </div>
+
+  <nav class="mt-4 flex flex-wrap gap-2" aria-label="Filtrar por estado">
+    <a href="/admin" class:list={['admin-tag', !filtro && '!bg-ink !text-white']}>Todos · {todos.length}</a>
+    {
+      ESTADOS.map((e) => (
+        <a href={`/admin?estado=${e.codigo}`} class:list={['admin-tag', filtro === e.codigo && '!bg-ink !text-white']}>
+          {e.etiqueta} · {porEstado[e.codigo] ?? 0}
+        </a>
+      ))
+    }
+  </nav>
+
+  <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+    <table class="w-full min-w-[860px] border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-ink/10 bg-ink/[0.03] text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+          <th class="p-3">Empresa</th>
+          <th class="p-3">Contacto</th>
+          <th class="p-3">Estado</th>
+          <th class="p-3">Fuente</th>
+          <th class="p-3">Próximo paso</th>
+          <th class="p-3">Actualizado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          leads.map((l) => {
+            const fechaPaso = fechaISO(l.fecha_proximo_paso);
+            const vencido = fechaPaso && fechaPaso < hoy;
+            return (
+              <tr class="border-b border-ink/5 align-top hover:bg-ink/[0.02]">
+                <td class="p-3">
+                  <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                  {l.sector && <span class="block text-xs text-ink/50">{l.sector}</span>}
+                </td>
+                <td class="p-3">
+                  {l.nombre}
+                  {l.cargo && <span class="block text-xs text-ink/50">{l.cargo}</span>}
+                </td>
+                <td class="p-3"><span class="admin-tag">{etiqueta(ESTADOS, l.estado)}</span></td>
+                <td class="p-3 text-ink/70">{etiqueta(FUENTES, l.fuente)}</td>
+                <td class="p-3">
+                  {l.proximo_paso ?? '—'}
+                  {fechaPaso && (
+                    <span class:list={['block text-xs', vencido ? 'font-semibold text-[#a8412b]' : 'text-ink/50']}>
+                      {vencido ? 'Vencido: ' : ''}{fechaPaso.split('-').reverse().join('/')}
+                    </span>
+                  )}
+                </td>
+                <td class="whitespace-nowrap p-3 text-ink/60">{fecha(l.actualizado_el)}</td>
+              </tr>
+            );
+          })
+        }
+        {
+          leads.length === 0 && !dbError && (
+            <tr><td colspan="6" class="p-8 text-center text-ink/50">No hay leads{filtro ? ' en este estado' : ''}.</td></tr>
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- "<" escapado: los datos vienen del formulario público y no deben poder cerrar esta etiqueta. -->
+  <script type="application/json" id="leads-data" set:html={JSON.stringify(csvRows).replace(/</g, '\\u003c')} />
+  <script>
     document.getElementById('export-csv')?.addEventListener('click', () => {
-      const data = JSON.parse(document.getElementById('leads-data').textContent || '[]');
-      const cols = ['created_at', 'nombre', 'empresa', 'cargo', 'email', 'whatsapp', 'tamano', 'resolver', 'ruta_referido', 'comentarios', 'resend_status'];
-      const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const data: Record<string, unknown>[] = JSON.parse(document.getElementById('leads-data')?.textContent || '[]');
+      if (data.length === 0) return;
+      const cols = Object.keys(data[0]);
+      const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const csv = [cols.join(','), ...data.map((row) => cols.map((c) => esc(row[c])).join(','))].join('\n');
       const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
       const a = document.createElement('a');
@@ -230,4 +227,4 @@ const statusLabel: Record<Lead['resend_status'], string> = {
       URL.revokeObjectURL(a.href);
     });
   </script>
-</Base>
+</AdminLayout>
