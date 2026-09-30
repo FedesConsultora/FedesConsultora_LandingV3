@@ -186,6 +186,12 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Cambio de `@vercel/postgres` a `@neondatabase/serverless`:** el paquete de Vercel está discontinuado (Vercel pasó su Postgres a Neon). Es el mismo motor y la misma variable `POSTGRES_URL`; no cambia de proveedor ni requiere migrar datos. La conexión quedó centralizada en `src/lib/db.ts`.
 - **No probado contra la base real:** no hay `.env` local con `POSTGRES_URL`. Hay que confirmar en la vista previa de Vercel que el panel lista los leads y que el formulario de Contacto los guarda.
 
+## Registro de la construcción (base de desarrollo, 29/09)
+
+- **Rama `desarrollo` en Neon** (proyecto de la integración de Vercel, se abre desde Vercel > Storage > Open in Neon). Creada solo con la estructura, sin los datos de producción, y sin vencimiento. El desarrollo del portal y los datos de prueba ficticios van ahí; `main` es producción.
+- **`.env` local:** `POSTGRES_URL` apunta a `desarrollo`. Las demás variables de base que trajo `vercel env pull` (`DATABASE_URL`, `PGHOST`, etc.) siguen apuntando a `main`, pero el código no las usa. Volver a correr `npx vercel env pull .env` pisa el archivo y vuelve a apuntar a producción.
+- **Migraciones en producción:** se aplican recién cuando cada fase esté aprobada, con `npm run db:migrate` apuntando a `main`. Antes, confirmar que la restauración a un punto anterior de Neon esté disponible.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.
