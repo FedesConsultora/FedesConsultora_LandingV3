@@ -1,0 +1,142 @@
+---
+// Un bloque de contenido de una etapa. Todo el texto se escapa (sin set:html): el contenido
+// viene de la base como datos estructurados, nunca como HTML.
+// Se usa en la landing del lead y en la vista previa del panel, para que se vean igual.
+import { consultoria } from '../../content/consultoria';
+import { contactChannels } from '../../content/site';
+import { contacto } from '../../content/contacto';
+import type { Bloque } from '../../lib/bloques';
+
+interface Props {
+  bloque: Bloque;
+}
+const { bloque: b } = Astro.props;
+
+// La agenda usa el mismo link de Google Calendar que /contacto hasta migrar a cal.com.
+const destinos = {
+  agendar: { href: contacto.calendario.embedUrl, evento: 'clic_agendar' },
+  whatsapp: { href: contactChannels.whatsapp.href, evento: 'clic_whatsapp' },
+};
+
+const ruta = b.tipo === 'ruta' ? consultoria.rutas.find((r) => r.name === b.ruta) : undefined;
+const parrafos = (t: string) => t.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+---
+
+{b.tipo === 'titulo' && <h3 class="mt-10 font-display text-xl font-bold text-ink md:text-2xl">{b.texto}</h3>}
+
+{
+  b.tipo === 'parrafo' &&
+    parrafos(b.texto).map((p) => <p class="mt-4 whitespace-pre-line text-lg leading-relaxed text-ink/80">{p}</p>)
+}
+
+{
+  b.tipo === 'lista' && (
+    <ul class="mt-5 space-y-3">
+      {b.items.map((item) => (
+        <li class="flex gap-3 text-lg leading-relaxed text-ink/80">
+          <span class="mt-3 h-px w-4 shrink-0 bg-azul" aria-hidden="true" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+{
+  b.tipo === 'destacado' && (
+    <aside class="mt-6 border-l-2 border-azul bg-azul/[0.06] px-6 py-5 text-lg leading-relaxed text-ink">{b.texto}</aside>
+  )
+}
+
+{
+  b.tipo === 'tabla' && (
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full border-collapse text-left text-base">
+        <thead>
+          <tr class="border-b border-ink/20">
+            {b.encabezados.map((h) => (
+              <th class="py-3 pr-6 font-display text-xs font-semibold uppercase tracking-wider text-ink/60">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {b.filas.map((fila) => (
+            <tr class="border-b border-ink/10 align-top">
+              {fila.map((c) => (
+                <td class="py-3 pr-6 text-ink/80">{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+{
+  b.tipo === 'caso' && (
+    <article class="mt-6 rounded-2xl bg-ink p-7 text-white md:p-9">
+      <p class="eyebrow text-celeste">Caso anónimo · {b.sector}</p>
+      <dl class="mt-6 grid gap-6 md:grid-cols-3">
+        {[
+          ['Situación', b.situacion],
+          ['Camino', b.camino],
+          ['Resultado', b.resultado],
+        ].map(([t, v]) => (
+          <div>
+            <dt class="font-display text-xs font-semibold uppercase tracking-wider text-white/50">{t}</dt>
+            <dd class="mt-2 leading-relaxed text-white/85">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </article>
+  )
+}
+
+{
+  b.tipo === 'ruta' && (
+    <section class="mt-6 rounded-2xl border border-ink/15 p-7 md:p-9">
+      <p class="eyebrow text-azul">Ruta sugerida</p>
+      <h3 class="mt-3 font-display text-2xl font-bold text-ink md:text-3xl">{b.ruta}</h3>
+      {ruta && <p class="mt-2 text-lg italic text-ink/60">{ruta.question}</p>}
+      <p class="mt-6 whitespace-pre-line text-lg leading-relaxed text-ink/80">{b.porque}</p>
+      <ol class="mt-8 space-y-4">
+        {b.onboardings.map((nombre) => {
+          const nivel = ruta?.levels.find((l) => l.name === nombre);
+          return (
+            <li class="border-t border-ink/10 pt-4">
+              <p class="font-display text-lg font-semibold text-ink">
+                {nombre}
+                {nivel?.includes && <span class="ml-2 font-normal text-ink/50">· incluye {nivel.includes}</span>}
+              </p>
+              {nivel && <p class="mt-1 leading-relaxed text-ink/70">{nivel.body}</p>}
+              {nivel && (
+                <p class="mt-2 text-sm text-ink/60">
+                  <span class="font-display font-semibold uppercase tracking-wider">Entregable:</span> {nivel.entregable}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  )
+}
+
+{
+  b.tipo === 'cta' && (
+    <p class="mt-8">
+      <a
+        href={destinos[b.destino].href}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-evento={destinos[b.destino].evento}
+        class:list={['btn', b.destino === 'agendar' ? 'btn-primary' : 'btn-outline-dark']}
+      >
+        {b.texto}
+      </a>
+    </p>
+  )
+}
+
+{b.tipo === 'separador' && <hr class="my-10 border-ink/15" />}

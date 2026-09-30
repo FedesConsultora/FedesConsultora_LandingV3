@@ -1,0 +1,51 @@
+---
+// Layout de la landing privada del lead (/diagnostico/[token]) y de su vista previa en el panel.
+// A diferencia de Base.astro: sin Google Analytics ni trackers, sin canonical, sin Open Graph
+// ni datos estructurados, y con un título genérico, para que una vista previa del link (WhatsApp,
+// mail) no muestre datos del prospecto (docs/09-portal-leads.md, sección 5).
+import '@fontsource-variable/inter';
+import '@fontsource/source-serif-4/300.css';
+import '@fontsource/source-serif-4/400.css';
+import '../styles/global.css';
+import { site } from '../content/site';
+
+interface Props {
+  titulo: string; // título visible dentro de la página, no en la pestaña
+}
+const { titulo } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tu diagnóstico | {site.name}</title>
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#1D1D1B" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    {Astro.locals.admin && <meta name="csrf-token" content={Astro.locals.admin.csrf} />}
+  </head>
+  <body class="bg-white font-body text-ink antialiased">
+    <slot name="antes" />
+    <header class="bg-ink text-white">
+      <div class="container-fedes pb-14 pt-8 md:pb-20">
+        <img src={site.logo} alt={site.name} width="2620" height="976" class="h-9 w-auto" />
+        <h1 class="mt-14 max-w-4xl font-display text-4xl font-bold leading-tight md:mt-20 md:text-6xl">{titulo}</h1>
+      </div>
+    </header>
+
+    <main class="container-fedes pb-16">
+      <slot />
+    </main>
+
+    <footer class="border-t border-ink/10 bg-ink/[0.02]">
+      <div class="container-fedes flex flex-col gap-4 py-8 font-display text-sm text-ink/60 md:flex-row md:items-center md:justify-between">
+        <p>{site.name} · Buenos Aires, Argentina</p>
+        <slot name="pie" />
+      </div>
+    </footer>
+  </body>
+</html>

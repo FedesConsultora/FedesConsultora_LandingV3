@@ -1,0 +1,357 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import BloqueEditor from '../../../components/admin/BloqueEditor.astro';
+import { TIPOS_BLOQUE, bloqueDesdeForm, problemasParaAprobar, type TipoBloque } from '../../../lib/bloques';
+import * as L from '../../../lib/landings';
+
+const id = Number(Astro.params.id);
+const adminId = Astro.locals.admin!.id;
+const csrf = Astro.locals.admin!.csrf;
+
+let error: string | null = null;
+// Bloque que no pasó la validación: se vuelve a mostrar con lo que se escribió y el error.
+let borrador: { etapaId: number; indice: number; crudo: Record<string, unknown>; error: string } | null = null;
+
+const MENSAJES: Record<string, string> = {
+  guardado: 'Cambios guardados.',
+  aprobada: 'Etapa aprobada.',
+  desbloqueada: 'Etapa desbloqueada: el lead ya la puede ver.',
+  bloqueada: 'Etapa bloqueada: el lead ya no ve su contenido.',
+  activada: 'Landing entregada: el lead ya puede abrir el link.',
+  revocada: 'Link revocado: ya no se puede abrir.',
+  regenerado: 'Link nuevo generado. El anterior dejó de funcionar.',
+};
+
+// El middleware ya validó la sesión y el token CSRF de este POST.
+if (Astro.request.method === 'POST' && Number.isInteger(id)) {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+  const etapaId = Number(form.get('etapa_id'));
+  const version = Number(form.get('version'));
+  const indice = Number(form.get('indice'));
+  let ok = 'guardado';
+  let ancla = etapaId ? `#etapa-${etapaId}` : '';
+
+  try {
+    // Toda etapa sobre la que se actúa tiene que ser de esta landing.
+    if (etapaId) {
+      const actual = await L.obtenerLanding(id);
+      if (!actual?.etapas.some((e) => e.id === etapaId)) throw new L.LandingError('La etapa no pertenece a esta landing.');
+    }
+    switch (accion) {
+      case 'guardar_landing': {
+        const vence = String(form.get('vence_el') ?? '');
+        await L.guardarDatosLanding(id, String(form.get('titulo') ?? ''), /^\d{4}-\d{2}-\d{2}$/.test(vence) ? `${vence}T23:59:59-03:00` : null, adminId);
+        break;
+      }
+      case 'activar':
+        await L.activarLanding(id, adminId);
+        ok = 'activada';
+        break;
+      case 'revocar':
+        await L.revocarLanding(id, adminId);
+        ok = 'revocada';
+        break;
+      case 'regenerar':
+        await L.regenerarToken(id, adminId);
+        ok = 'regenerado';
+        break;
+      case 'agregar_etapa':
+        ancla = `#etapa-${await L.agregarEtapa(id, adminId)}`;
+        break;
+      case 'titulo_etapa':
+        await L.guardarTituloEtapa(etapaId, version, String(form.get('titulo') ?? ''), adminId);
+        break;
+      case 'modo_etapa':
+        await L.guardarModoEtapa(etapaId, String(form.get('modo') ?? ''), adminId);
+        break;
+      case 'aprobar':
+        await L.aprobarEtapa(etapaId, adminId);
+        ok = 'aprobada';
+        break;
+      case 'quitar_aprobacion':
+        await L.quitarAprobacion(etapaId, adminId);
+        break;
+      case 'desbloquear':
+        await L.desbloquearEtapa(etapaId, adminId);
+        ok = 'desbloqueada';
+        break;
+      case 'bloquear':
+        await L.bloquearEtapa(etapaId, adminId);
+        ok = 'bloqueada';
+        break;
+      case 'subir_etapa':
+      case 'bajar_etapa':
+        await L.moverEtapa(etapaId, accion === 'subir_etapa' ? -1 : 1, adminId);
+        break;
+      case 'eliminar_etapa':
+        await L.eliminarEtapa(etapaId, adminId);
+        ancla = '';
+        break;
+      case 'agregar_bloque': {
+        const tipo = String(form.get('tipo') ?? '');
+        if (!TIPOS_BLOQUE.some((t) => t.tipo === tipo)) throw new L.LandingError('Elegí un tipo de bloque.');
+        await L.agregarBloque(etapaId, version, tipo as TipoBloque, adminId);
+        break;
+      }
+      case 'guardar_bloque': {
+        const r = bloqueDesdeForm(String(form.get('tipo') ?? ''), form);
+        if (!r.bloque) {
+          borrador = { etapaId, indice, crudo: r.crudo ?? {}, error: r.error ?? 'Revisá el bloque.' };
+          break;
+        }
+        await L.guardarBloque(etapaId, version, indice, r.bloque, adminId);
+        ancla = `#bloque-${etapaId}-${indice}`;
+        break;
+      }
+      case 'subir_bloque':
+      case 'bajar_bloque':
+        await L.moverBloque(etapaId, version, indice, accion === 'subir_bloque' ? -1 : 1, adminId);
+        break;
+      case 'eliminar_bloque':
+        await L.eliminarBloque(etapaId, version, indice, adminId);
+        break;
+      default:
+        throw new L.LandingError('Acción desconocida.');
+    }
+    if (!borrador) return Astro.redirect(`/admin/landings/${id}?ok=${ok}${ancla}`, 303);
+  } catch (e) {
+    if (!(e instanceof L.LandingError)) throw e;
+    error = e.message;
+  }
+}
+
+const datos = Number.isInteger(id) ? await L.obtenerLanding(id) : null;
+if (!datos) Astro.response.status = 404;
+
+const aviso = MENSAJES[Astro.url.searchParams.get('ok') ?? ''] ?? null;
+const estado = datos ? L.estadoVisible(datos.landing) : null;
+const link = datos && datos.landing.estado !== 'revocada' ? L.linkDeLanding(datos.landing, Astro.url.origin) : null;
+
+const fechaHora = (d: Date | null) =>
+  d ? new Date(d).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short', timeStyle: 'short' }) : '';
+const venceInput = datos?.landing.vence_el
+  ? new Date(datos.landing.vence_el).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
+  : '';
+---
+
+<AdminLayout title={datos ? datos.landing.titulo : 'Landing no encontrada'}>
+  {
+    !datos ? (
+      <>
+        <a href="/admin" class="font-display text-sm text-ink/50 hover:text-azul">← Leads</a>
+        <h1 class="mt-3 text-2xl font-bold">Esta landing no existe.</h1>
+      </>
+    ) : (
+      <>
+        <a href={`/admin/leads/${datos.landing.lead_id}`} class="font-display text-sm text-ink/50 hover:text-azul">
+          ← {datos.landing.empresa}
+        </a>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <h1 class="text-2xl font-bold md:text-3xl">{datos.landing.titulo}</h1>
+          <span class="admin-tag">{L.ETIQUETA_ESTADO_LANDING[estado!]}</span>
+        </div>
+        <p class="mt-1 text-sm text-ink/60">
+          Para {datos.landing.nombre}
+          {datos.landing.entregada_el && ` · entregada el ${fechaHora(datos.landing.entregada_el)}`}
+        </p>
+
+        {aviso && <p class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}
+        {error && <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]" role="alert">{error}</p>}
+
+        <!-- Landing: link, entrega y datos -->
+        <section class="admin-card mt-8">
+          <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <div>
+              <h2 class="eyebrow text-ink/50">Link privado</h2>
+              {link ? (
+                <>
+                  <div class="mt-3 flex gap-2">
+                    <input id="link" readonly value={link} class="admin-input !mt-0 font-mono !text-xs" aria-label="Link privado de la landing" />
+                    <button type="button" id="copiar" class="btn btn-outline-dark shrink-0 !px-4 !py-2 !text-xs">Copiar</button>
+                  </div>
+                  <p class="mt-2 text-xs text-ink/50">
+                    Es la credencial del lead: compartilo solo con él. {estado === 'borrador' && 'Todavía no funciona: la landing no se entregó.'}
+                  </p>
+                </>
+              ) : (
+                <p class="mt-3 text-sm text-ink/60">El link está revocado. Generá uno nuevo para volver a compartirla.</p>
+              )}
+              <div class="mt-4 flex flex-wrap gap-2">
+                <a href={`/admin/landings/${datos.landing.id}/vista`} target="_blank" class="btn btn-outline-dark !px-4 !py-2 !text-xs">
+                  Vista previa
+                </a>
+                {datos.landing.estado === 'borrador' && (
+                  <form method="post">
+                    <input type="hidden" name="csrf" value={csrf} />
+                    <button name="accion" value="activar" class="btn btn-primary !px-4 !py-2 !text-xs">Entregar landing</button>
+                  </form>
+                )}
+                {datos.landing.estado !== 'revocada' && (
+                  <form method="post">
+                    <input type="hidden" name="csrf" value={csrf} />
+                    <button name="accion" value="revocar" class="btn btn-outline-dark !px-4 !py-2 !text-xs" data-confirmar="¿Revocar el link? El lead ya no va a poder abrir la landing.">
+                      Revocar link
+                    </button>
+                  </form>
+                )}
+                <form method="post">
+                  <input type="hidden" name="csrf" value={csrf} />
+                  <button name="accion" value="regenerar" class="btn btn-outline-dark !px-4 !py-2 !text-xs" data-confirmar="¿Generar un link nuevo? El actual va a dejar de funcionar.">
+                    Generar link nuevo
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <form method="post" class="space-y-4">
+              <input type="hidden" name="csrf" value={csrf} />
+              <input type="hidden" name="accion" value="guardar_landing" />
+              <div>
+                <label for="titulo" class="admin-label">Título</label>
+                <input id="titulo" name="titulo" maxlength="200" value={datos.landing.titulo} class="admin-input" />
+              </div>
+              <div>
+                <label for="vence_el" class="admin-label">Vence (opcional, al final del día)</label>
+                <input id="vence_el" name="vence_el" type="date" value={venceInput} class="admin-input" />
+              </div>
+              <button class="btn btn-outline-dark !px-4 !py-2 !text-xs">Guardar</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Etapas -->
+        <h2 class="mt-12 text-lg font-semibold">Etapas</h2>
+        <p class="mt-1 max-w-3xl text-sm text-ink/60">
+          Editar una etapa le quita la aprobación. Solo se desbloquean etapas aprobadas, y una etapa desbloqueada no se edita
+          (primero hay que bloquearla). Al entregar la landing se desbloquean las marcadas «Al entregar».
+        </p>
+
+        <div class="mt-6 space-y-6">
+          {datos.etapas.map((e, i) => {
+            const visible = e.estado === 'desbloqueada';
+            const problemas = e.aprobada ? [] : problemasParaAprobar(e.titulo, e.contenido);
+            const base = { csrf, etapa_id: e.id, version: e.version };
+            return (
+              <section class="admin-card" id={`etapa-${e.id}`}>
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="flex items-center gap-3">
+                    <span class="font-display text-sm font-semibold tracking-[0.2em] text-azul">{String(e.orden).padStart(2, '0')}</span>
+                    <span class:list={['admin-tag', visible && '!bg-azul !text-white']}>{visible ? 'Desbloqueada' : 'Bloqueada'}</span>
+                    <span class:list={['admin-tag', e.aprobada && '!bg-[#e9eff3] !text-[#2f5069]']}>
+                      {e.aprobada ? `Aprobada por ${e.aprobada_por_nombre ?? '—'} · ${fechaHora(e.aprobada_el)}` : 'Sin aprobar'}
+                    </span>
+                  </div>
+                  <form method="post" class="flex flex-wrap gap-1">
+                    {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                    <button name="accion" value="subir_etapa" disabled={i === 0} class="rounded px-2 py-1 text-xs text-ink/60 hover:bg-ink/10 disabled:opacity-30" aria-label="Subir etapa">↑</button>
+                    <button name="accion" value="bajar_etapa" disabled={i === datos.etapas.length - 1} class="rounded px-2 py-1 text-xs text-ink/60 hover:bg-ink/10 disabled:opacity-30" aria-label="Bajar etapa">↓</button>
+                    {!visible && (
+                      <button name="accion" value="eliminar_etapa" class="rounded px-2 py-1 text-xs text-[#a8412b] hover:bg-[#fbeae3]" data-confirmar="¿Eliminar esta etapa y todo su contenido?">
+                        Eliminar etapa
+                      </button>
+                    )}
+                  </form>
+                </div>
+
+                <div class="mt-4 grid gap-4 md:grid-cols-[1fr_auto]">
+                  <form method="post" class="flex gap-2">
+                    {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                    <input type="hidden" name="accion" value="titulo_etapa" />
+                    <input name="titulo" value={e.titulo} maxlength="200" disabled={visible} class="admin-input !mt-0 font-semibold" aria-label="Título de la etapa" />
+                    {!visible && <button class="btn btn-outline-dark shrink-0 !px-4 !py-2 !text-xs">Guardar título</button>}
+                  </form>
+                  <form method="post" class="flex items-center gap-2">
+                    {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                    <input type="hidden" name="accion" value="modo_etapa" />
+                    <label for={`modo-${e.id}`} class="admin-label !mt-0 whitespace-nowrap">Desbloqueo</label>
+                    <select id={`modo-${e.id}`} name="modo" class="admin-input !mt-0 !w-auto" onchange="this.form.requestSubmit()">
+                      <option value="al_entregar" selected={e.modo_desbloqueo === 'al_entregar'}>Al entregar</option>
+                      <option value="manual" selected={e.modo_desbloqueo === 'manual'}>Manual</option>
+                    </select>
+                    <noscript><button class="btn btn-outline-dark !px-3 !py-1.5 !text-xs">Guardar</button></noscript>
+                  </form>
+                </div>
+
+                <div class="mt-5 space-y-3">
+                  {e.contenido.length === 0 && <p class="text-sm text-ink/50">Esta etapa todavía no tiene contenido.</p>}
+                  {e.contenido.map((b, j) => {
+                    const esBorrador = borrador?.etapaId === e.id && borrador.indice === j;
+                    return (
+                      <BloqueEditor
+                        etapaId={e.id}
+                        version={e.version}
+                        indice={j}
+                        total={e.contenido.length}
+                        bloque={esBorrador ? borrador!.crudo : b}
+                        bloqueado={visible}
+                        error={esBorrador ? borrador!.error : undefined}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div class="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-ink/10 pt-5">
+                  {!visible ? (
+                    <form method="post" class="flex items-center gap-2">
+                      {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                      <input type="hidden" name="accion" value="agregar_bloque" />
+                      <select name="tipo" class="admin-input !mt-0 !w-auto" aria-label="Tipo de bloque">
+                        {TIPOS_BLOQUE.map((t) => <option value={t.tipo}>{t.etiqueta}</option>)}
+                      </select>
+                      <button class="btn btn-outline-dark shrink-0 !px-4 !py-2 !text-xs">Agregar bloque</button>
+                    </form>
+                  ) : (
+                    <p class="text-sm text-ink/60">El lead está viendo esta etapa. Para editarla, bloqueala.</p>
+                  )}
+
+                  <form method="post" class="flex flex-wrap items-center gap-2">
+                    {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                    {!e.aprobada && (
+                      <button name="accion" value="aprobar" class="btn btn-primary !px-4 !py-2 !text-xs" disabled={problemas.length > 0}>
+                        Aprobar
+                      </button>
+                    )}
+                    {e.aprobada && !visible && (
+                      <>
+                        <button name="accion" value="desbloquear" class="btn btn-primary !px-4 !py-2 !text-xs">Desbloquear</button>
+                        <button name="accion" value="quitar_aprobacion" class="btn btn-outline-dark !px-4 !py-2 !text-xs">Quitar aprobación</button>
+                      </>
+                    )}
+                    {visible && (
+                      <button name="accion" value="bloquear" class="btn btn-outline-dark !px-4 !py-2 !text-xs" data-confirmar="¿Bloquear la etapa? El lead deja de ver su contenido.">
+                        Bloquear
+                      </button>
+                    )}
+                  </form>
+                </div>
+                {problemas.length > 0 && <p class="mt-3 text-right text-xs text-ink/50">Para aprobar: {problemas.join(', ')}.</p>}
+              </section>
+            );
+          })}
+        </div>
+
+        <form method="post" class="mt-6">
+          <input type="hidden" name="csrf" value={csrf} />
+          <button name="accion" value="agregar_etapa" class="btn btn-outline-dark !py-2 !text-xs">Agregar etapa</button>
+        </form>
+      </>
+    )
+  }
+
+  <script>
+    // Confirmación antes de acciones que no se deshacen con un clic.
+    document.addEventListener('click', (ev) => {
+      const boton = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-confirmar]');
+      if (boton && !confirm(boton.dataset.confirmar)) ev.preventDefault();
+    });
+    document.getElementById('copiar')?.addEventListener('click', async (ev) => {
+      const input = document.getElementById('link') as HTMLInputElement;
+      const boton = ev.currentTarget as HTMLButtonElement;
+      await navigator.clipboard.writeText(input.value);
+      boton.textContent = 'Copiado';
+      setTimeout(() => (boton.textContent = 'Copiar'), 2000);
+    });
+  </script>
+</AdminLayout>

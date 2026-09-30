@@ -214,6 +214,18 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Pendiente de decidir:** si un lead que pidió la baja vuelve a completar el formulario web, hoy se renueva el consentimiento pero la baja se mantiene. Definir con el abogado si el nuevo envío la levanta.
 - **Quedan para la fase 3:** tablero con arrastrar y soltar, filtros completos, puntaje de encaje, edición de la lista de sectores y recordatorios de próximo paso (hoy solo se marcan como vencidos en la lista).
 
+## Registro de la construcción (portal, fase 1, paso 4: landings y editor, 29/09)
+
+- **Crear una landing** desde la ficha del lead («Crear landing»). Nace con la plantilla de 4 etapas de la especificación: «Resultados del diagnóstico» y «Ruta y onboardings sugeridos» se desbloquean al entregar; «Caso anónimo del sector» y «Hoja de ruta y próximos pasos», a mano. Título por defecto: «Diagnóstico de [Empresa]».
+- **Editor de etapas** con los 9 tipos de bloque. El bloque de ruta se elige de las 3 rutas y 7 onboardings vigentes, y muestra la descripción y el entregable tomados de `consultoria.ts` (una sola fuente).
+- **Reglas:** editar una etapa le quita la aprobación; solo se desbloquean etapas aprobadas (también lo exige la base); una etapa visible para el lead no se edita, primero hay que bloquearla; si dos personas editan la misma etapa, la segunda recibe un aviso en lugar de pisar los cambios.
+- **Control antes de aprobar:** bloquea emojis, montos y precios, «agencia», «posteos» o «likes», «Empresa B» y los nombres de los combos discontinuados.
+- **Link:** token de 256 bits; la base guarda su hash y una copia cifrada (AES-256-GCM). Se puede copiar, revocar y regenerar. Una landing revocada no se reactiva con el mismo link: hay que generar uno nuevo.
+- **Variable de entorno nueva:** `LANDING_TOKEN_KEY` (32 bytes en base64). **Antes de publicar en producción** hay que cargarla en Vercel, distinta de la de desarrollo. Si se pierde, los links siguen funcionando pero el panel ya no puede mostrarlos.
+- **Textos propios de la landing, a validar:** «Próximamente» (etapas bloqueadas), «Ruta sugerida», «Caso anónimo · [sector]», los rótulos «Situación / Camino / Resultado» del caso y «Entregable:». El pie dice «Fedes Consultora · Buenos Aires, Argentina».
+- **Quedan para la fase 3:** editar la plantilla de etapas desde el panel, desbloqueo programado y vista previa integrada en el editor (hoy se abre en otra pestaña).
+- **Landing de ejemplo en `desarrollo`:** «Diagnóstico de Empresa Ficticia S.A.», con contenido ficticio, para revisar el diseño.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

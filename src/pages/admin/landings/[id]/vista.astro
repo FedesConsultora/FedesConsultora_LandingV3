@@ -1,0 +1,29 @@
+---
+// Vista previa de la landing en el panel: se ve igual que la del lead (mismo layout y mismos
+// componentes), pero muestra también el contenido de las etapas que el lead todavía no ve.
+export const prerender = false;
+import Privada from '../../../../layouts/Privada.astro';
+import EtapaVista from '../../../../components/diagnostico/EtapaVista.astro';
+import { contenidoSchema } from '../../../../lib/bloques';
+import { obtenerLanding } from '../../../../lib/landings';
+
+const id = Number(Astro.params.id);
+const datos = Number.isInteger(id) ? await obtenerLanding(id) : null;
+if (!datos) return Astro.redirect('/admin', 303);
+
+const etapas = datos.etapas.map((e) => {
+  const contenido = contenidoSchema.safeParse(e.contenido);
+  const aviso =
+    e.estado === 'desbloqueada' ? undefined : !e.aprobada ? 'Sin aprobar · el lead no la ve' : 'Bloqueada · el lead ve solo el título';
+  // Un bloque incompleto (recién agregado) no se muestra hasta que se guarde bien.
+  return { ...e, aviso, contenido: contenido.success ? contenido.data : contenidoSchema.parse(e.contenido.filter((b) => contenidoSchema.safeParse([b]).success)) };
+});
+---
+
+<Privada titulo={datos.landing.titulo}>
+  <div slot="antes" class="bg-[#faf0da] px-5 py-3 text-center font-display text-sm text-[#8f5f16]">
+    Vista previa del panel. El lead ve solo las etapas desbloqueadas; del resto, solo el título.
+    <a href={`/admin/landings/${id}`} class="ml-2 font-semibold underline">Volver al editor</a>
+  </div>
+  {etapas.map((e, i) => <EtapaVista numero={i + 1} titulo={e.titulo} contenido={e.contenido} aviso={e.aviso} />)}
+</Privada>

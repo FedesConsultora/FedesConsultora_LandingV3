@@ -4,6 +4,7 @@ import AdminLayout from '../../../components/admin/AdminLayout.astro';
 import LeadForm from '../../../components/admin/LeadForm.astro';
 import { LeadError, actualizarLead, cambiarEstado, listarSectores, obtenerLead } from '../../../lib/leads';
 import { ESTADOS, FUENTES, MOTIVOS_PERDIDO, etiqueta, parseCambioEstado, parseLead, type Errores } from '../../../lib/pipeline';
+import { ETIQUETA_ESTADO_LANDING, LandingError, crearLanding, estadoVisible, listarLandingsDeLead } from '../../../lib/landings';
 
 const id = Number(Astro.params.id);
 const adminId = Astro.locals.admin!.id;
@@ -27,6 +28,9 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
         return Astro.redirect(`/admin/leads/${id}?guardado=1`, 303);
       }
       valoresForm = Object.fromEntries(form);
+    } else if (accion === 'crear_landing') {
+      const landingId = await crearLanding(id, adminId);
+      return Astro.redirect(`/admin/landings/${landingId}`, 303);
     } else if (accion === 'estado') {
       const cambio = parseCambioEstado(form);
       if (cambio.error) error = cambio.error;
@@ -36,7 +40,7 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
       }
     }
   } catch (e) {
-    if (!(e instanceof LeadError)) throw e;
+    if (!(e instanceof LeadError) && !(e instanceof LandingError)) throw e;
     error = e.message;
     if (accion === 'guardar') valoresForm = Object.fromEntries(form);
   }
@@ -44,6 +48,7 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
 
 const datos = Number.isInteger(id) ? await obtenerLead(id) : null;
 if (!datos) Astro.response.status = 404;
+const landings = datos ? await listarLandingsDeLead(id) : [];
 
 const aviso = Astro.url.searchParams.has('creado')
   ? 'Lead creado.'
@@ -96,6 +101,27 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
           </div>
 
           <div class="space-y-6">
+            <section class="admin-card">
+              <h2 class="eyebrow text-ink/50">Landings</h2>
+              {landings.length === 0 && (
+                <p class="mt-4 text-sm text-ink/60">Se crea después de la sesión de diagnóstico, con los resultados y la ruta sugerida.</p>
+              )}
+              <ul class="mt-4 space-y-3 text-sm">
+                {landings.map((l) => (
+                  <li class="flex items-center justify-between gap-3">
+                    <a href={`/admin/landings/${l.id}`} class="font-semibold text-azul hover:underline">{l.titulo}</a>
+                    <span class="admin-tag shrink-0">
+                      {ETIQUETA_ESTADO_LANDING[estadoVisible(l)]} · {l.desbloqueadas}/{l.etapas}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <form method="post" class="mt-4">
+                <input type="hidden" name="csrf" value={csrf} />
+                <button name="accion" value="crear_landing" class="btn btn-outline-dark !py-2 !text-xs">Crear landing</button>
+              </form>
+            </section>
+
             <section class="admin-card">
               <h2 class="eyebrow text-ink/50">Estado</h2>
               <form method="post" class="mt-4 space-y-4">

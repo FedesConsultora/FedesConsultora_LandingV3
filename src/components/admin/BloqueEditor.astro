@@ -1,0 +1,134 @@
+---
+// Formulario de un bloque dentro del editor de etapas. Un solo <form> con varios botones:
+// el botón que se aprieta define la acción (guardar, subir, bajar, eliminar).
+import { RUTAS, TIPOS_BLOQUE } from '../../lib/bloques';
+
+interface Props {
+  etapaId: number;
+  version: number;
+  indice: number;
+  total: number;
+  bloque: Record<string, any>;
+  bloqueado: boolean; // la etapa está visible para el lead: no se edita
+  error?: string; // error de validación al guardar este bloque
+}
+const { etapaId, version, indice, total, bloque: b, bloqueado, error } = Astro.props;
+const csrf = Astro.locals.admin?.csrf ?? '';
+const etiqueta = TIPOS_BLOQUE.find((t) => t.tipo === b.tipo)?.etiqueta ?? b.tipo;
+const id = (campo: string) => `b-${etapaId}-${indice}-${campo}`;
+const tablaTexto = b.tipo === 'tabla' && b.encabezados.length ? [b.encabezados, ...b.filas].map((f: string[]) => f.join(' | ')).join('\n') : '';
+---
+
+<form method="post" class="rounded-xl border border-ink/10 bg-ink/[0.015] p-4" id={`bloque-${etapaId}-${indice}`}>
+  <input type="hidden" name="csrf" value={csrf} />
+  <input type="hidden" name="etapa_id" value={etapaId} />
+  <input type="hidden" name="version" value={version} />
+  <input type="hidden" name="indice" value={indice} />
+  <input type="hidden" name="tipo" value={b.tipo} />
+  <!-- Enter dentro de un campo usa el primer botón del formulario: que sea "guardar". -->
+  {!bloqueado && <button name="accion" value="guardar_bloque" class="sr-only" tabindex="-1" aria-hidden="true">Guardar</button>}
+
+  <div class="flex items-center justify-between gap-3">
+    <p class="font-display text-xs font-semibold uppercase tracking-wide text-ink/50">{indice + 1}. {etiqueta}</p>
+    {
+      !bloqueado && (
+        <div class="flex gap-1">
+          <button name="accion" value="subir_bloque" class="rounded px-2 py-1 text-xs text-ink/60 hover:bg-ink/10 disabled:opacity-30" disabled={indice === 0} aria-label="Subir bloque">↑</button>
+          <button name="accion" value="bajar_bloque" class="rounded px-2 py-1 text-xs text-ink/60 hover:bg-ink/10 disabled:opacity-30" disabled={indice === total - 1} aria-label="Bajar bloque">↓</button>
+          <button name="accion" value="eliminar_bloque" class="rounded px-2 py-1 text-xs text-[#a8412b] hover:bg-[#fbeae3]" data-confirmar="¿Eliminar este bloque?">Eliminar</button>
+        </div>
+      )
+    }
+  </div>
+
+  <fieldset disabled={bloqueado} class="mt-3 space-y-3">
+    {
+      (b.tipo === 'titulo' || b.tipo === 'destacado') && (
+        <input name="texto" value={b.texto} maxlength={b.tipo === 'titulo' ? 200 : 1000} class="admin-input !mt-0" aria-label="Texto" />
+      )
+    }
+    {b.tipo === 'parrafo' && <textarea name="texto" rows="5" maxlength="5000" class="admin-input !mt-0" aria-label="Texto">{b.texto}</textarea>}
+    {
+      b.tipo === 'lista' && (
+        <>
+          <label for={id('items')} class="admin-label">Un ítem por línea</label>
+          <textarea id={id('items')} name="items" rows="5" class="admin-input">{b.items.join('\n')}</textarea>
+        </>
+      )
+    }
+    {
+      b.tipo === 'tabla' && (
+        <>
+          <label for={id('tabla')} class="admin-label">Primera línea: encabezados. Celdas separadas por «|»</label>
+          <textarea id={id('tabla')} name="tabla" rows="5" class="admin-input font-mono" placeholder="Área | Hallazgo | Prioridad">{tablaTexto}</textarea>
+        </>
+      )
+    }
+    {
+      b.tipo === 'caso' &&
+        [
+          ['sector', 'Sector', 1],
+          ['situacion', 'Situación', 3],
+          ['camino', 'Camino', 3],
+          ['resultado', 'Resultado (toda cifra con su plazo)', 3],
+        ].map(([campo, label, filas]) => (
+          <div>
+            <label for={id(String(campo))} class="admin-label">{label}</label>
+            <textarea id={id(String(campo))} name={String(campo)} rows={Number(filas)} class="admin-input">{b[String(campo)]}</textarea>
+          </div>
+        ))
+    }
+    {
+      b.tipo === 'ruta' && (
+        <>
+          <div>
+            <label for={id('ruta')} class="admin-label">Ruta</label>
+            <select id={id('ruta')} name="ruta" class="admin-input">
+              <option value="">Elegí una ruta</option>
+              {RUTAS.map((r) => <option value={r.nombre} selected={b.ruta === r.nombre}>{r.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <p class="admin-label">Onboardings sugeridos (de la ruta elegida)</p>
+            <div class="mt-2 grid gap-4 sm:grid-cols-3">
+              {RUTAS.map((r) => (
+                <div class="space-y-1.5">
+                  <p class="font-display text-xs text-ink/50">{r.nombre}</p>
+                  {r.onboardings.map((o) => (
+                    <label class="flex items-center gap-2 font-display text-sm">
+                      <input type="checkbox" name="onboardings" value={o} checked={b.onboardings.includes(o)} class="accent-azul" />
+                      {o}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label for={id('porque')} class="admin-label">Por qué esta ruta (sin precios)</label>
+            <textarea id={id('porque')} name="porque" rows="4" class="admin-input">{b.porque}</textarea>
+          </div>
+        </>
+      )
+    }
+    {
+      b.tipo === 'cta' && (
+        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <input name="texto" value={b.texto} maxlength="80" class="admin-input !mt-0" placeholder="Texto del botón" aria-label="Texto del botón" />
+          <select name="destino" class="admin-input !mt-0" aria-label="Destino">
+            <option value="agendar" selected={b.destino === 'agendar'}>Agendar (calendario)</option>
+            <option value="whatsapp" selected={b.destino === 'whatsapp'}>WhatsApp</option>
+          </select>
+        </div>
+      )
+    }
+    {b.tipo === 'separador' && <p class="font-display text-sm text-ink/40">Línea divisoria. No tiene campos.</p>}
+    {error && <p class="admin-error !mt-2" role="alert">{error}</p>}
+
+    {
+      !bloqueado && b.tipo !== 'separador' && (
+        <button name="accion" value="guardar_bloque" class="btn btn-outline-dark !px-4 !py-1.5 !text-xs">Guardar bloque</button>
+      )
+    }
+  </fieldset>
+</form>

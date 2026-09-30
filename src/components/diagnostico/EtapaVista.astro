@@ -1,0 +1,34 @@
+---
+// Una etapa tal como la ve el lead. Si está bloqueada se muestra solo su título y estado:
+// el contenido no se recibe como prop, así nunca llega al HTML.
+import Bloque from './Bloque.astro';
+import type { Bloque as TipoBloque } from '../../lib/bloques';
+
+interface Props {
+  numero: number;
+  titulo: string;
+  contenido?: TipoBloque[]; // solo para etapas desbloqueadas
+  aviso?: string; // vista previa del panel: "Bloqueada", "Sin aprobar", etc.
+}
+const { numero, titulo, contenido, aviso } = Astro.props;
+const n = String(numero).padStart(2, '0');
+---
+
+<section class="border-t border-ink/15 py-12 md:py-16" id={`etapa-${numero}`}>
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="font-display text-sm font-semibold tracking-[0.2em] text-azul">{n}</span>
+    <h2 class:list={['font-display text-2xl font-bold md:text-3xl', contenido ? 'text-ink' : 'text-ink/40']}>{titulo}</h2>
+    {aviso && <span class="pill border-[#8f5f16] text-[#8f5f16]">{aviso}</span>}
+  </div>
+  {
+    contenido ? (
+      <div class="max-w-3xl">
+        {contenido.map((b) => (
+          <Bloque bloque={b} />
+        ))}
+      </div>
+    ) : (
+      <p class="mt-4 font-display text-sm uppercase tracking-[0.2em] text-ink/40">Próximamente</p>
+    )
+  }
+</section>
