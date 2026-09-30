@@ -12,7 +12,9 @@
     "astro": "astro",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "test": "vitest run",
-    "admin:crear": "node --env-file-if-exists=.env scripts/create-admin.mjs"
+    "admin:crear": "node --env-file-if-exists=.env scripts/create-admin.mjs",
+    "db:seed-demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
+    "verificar:fase1": "node --env-file-if-exists=.env scripts/verificar-fase1.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

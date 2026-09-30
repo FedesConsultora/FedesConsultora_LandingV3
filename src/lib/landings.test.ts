@@ -86,6 +86,7 @@ describe('bloques', () => {
 describe('control de contenido antes de aprobar', () => {
   it('detecta cada regla de CLAUDE.md', () => {
     expect(revisarTextos(['Muy buen resultado 🚀'])).toContain('tiene emojis');
+    expect(revisarTextos(['© Fedes Consultora ® ™'])).toEqual([]);
     for (const t of ['Cuesta $ 1.500.000', 'USD 3000', 'son 500 dólares', '2000 pesos por mes', '1.200 USD']) {
       expect(revisarTextos([t]), t).toContain('menciona montos o precios');
     }

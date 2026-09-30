@@ -139,7 +139,8 @@ function textosDe(b: Record<string, unknown>): string[] {
 // Reglas de CLAUDE.md que se verifican antes de aprobar: sin emojis, sin precios, sin
 // posicionarse como agencia, sin la certificación B y sin los combos discontinuados.
 const REGLAS: { patron: RegExp; motivo: string }[] = [
-  { patron: /\p{Extended_Pictographic}/u, motivo: 'tiene emojis' },
+  // ©, ® y ™ son símbolos tipográficos, no emojis (Unicode los agrupa con ellos).
+  { patron: /(?![\u00A9\u00AE\u2122])\p{Extended_Pictographic}/u, motivo: 'tiene emojis' },
   { patron: /(\$|u\$s|usd|ars|€)\s?\d|\d\s?(\$|usd|ars|€)|\b(pesos|d[oó]lares|euros)\b/iu, motivo: 'menciona montos o precios' },
   { patron: /\bagencia\b/iu, motivo: 'usa la palabra «agencia»' },
   { patron: /\b(posteos?|likes)\b/iu, motivo: 'habla de posteos o likes' },

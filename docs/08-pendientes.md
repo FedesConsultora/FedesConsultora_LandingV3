@@ -237,6 +237,28 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Textos propios, a validar:** «Este link no está disponible.» y «Si necesitás acceder a tu diagnóstico, escribinos a info@fedesconsultora.com.» (página genérica) y la confirmación de la baja, «Registramos tu pedido: no vas a recibir más comunicaciones de Fedes Consultora.» (validar con el abogado). Están en `src/content/diagnostico.ts`.
 - **Los clics en agendar y WhatsApp** todavía no se registran: quedan para el monitoreo (fase 3).
 
+## Registro de la construcción (portal, fase 1, paso 6: cierre y verificación, 29/09)
+
+- **Comandos nuevos:**
+  - `npm test`: pruebas unitarias (52).
+  - `npm run verificar:fase1`: recorre los 9 criterios de aceptación de la fase 1 contra el servidor local (`npm run dev` corriendo) y la base de desarrollo, con datos ficticios que borra al terminar. Resultado al 29/09: 43 de 43 verificaciones, los 9 criterios cumplidos.
+  - `npm run db:seed-demo`: carga 6 leads ficticios (`@ejemplo.test`), uno por estado del pipeline, y una landing entregada. Se puede correr varias veces.
+- **Protección de producción:** `verificar:fase1` y `db:seed-demo` solo corren si la base tiene la tabla marcadora `marca_desarrollo`, que existe únicamente en la rama `desarrollo`. Probado: contra `main` se detienen sin tocar nada. `db:migrate` y `admin:crear` no tienen esta protección, porque también se usan en producción: siempre muestran o usan la base del `.env`, revisarla antes.
+- **El «©» del pie del sitio** no cuenta como emoji: el control de contenido de las landings tampoco marca ©, ® ni ™.
+
+## Publicar la fase 1 en producción (checklist)
+
+Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada:
+
+1. En Neon (Vercel > Storage > Open in Neon), confirmar que la restauración a un punto anterior esté disponible para `main`.
+2. En Vercel > Settings > Environment Variables, cargar `LANDING_TOKEN_KEY` (`openssl rand -base64 32`), distinta de la de desarrollo. Confirmar que `SESSION_SECRET` exista.
+3. Aplicar las migraciones en `main`: con `POSTGRES_URL` apuntando a producción, `npm run db:migrate`. Aplica 001 (sin cambios sobre lo existente), 002, 003 (fusiona los 3 leads con el mismo email en uno, sin perder los envíos) y 004.
+4. Crear los usuarios del panel en producción con `npm run admin:crear` (misma base). Sin esto nadie puede entrar al panel.
+5. Volver a apuntar el `.env` local a `desarrollo`.
+6. Publicar el código (deploy).
+7. Prueba rápida en producción: login, envío del formulario de Contacto con un email de prueba, crear y entregar una landing de prueba, abrirla en una ventana privada, y borrarla.
+8. Borrar de Vercel `ADMIN_USER` y `ADMIN_PASSWORD_HASH`, que ya no se usan.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

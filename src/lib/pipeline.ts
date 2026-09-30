@@ -48,7 +48,7 @@ export function tamanoDesdeFormulario(texto: string | null | undefined) {
   return i === -1 ? 'desconocido' : CODIGOS_TAMANO[i];
 }
 
-// ⚠️ PENDIENTE (docs/09-portal-leads.md, decisiones abiertas): alcance geográfico. Lista provisoria.
+// PENDIENTE (docs/09-portal-leads.md, decisiones abiertas): alcance geográfico. Lista provisoria.
 export const PAISES = ['Argentina', 'Uruguay', 'Chile', 'Paraguay', 'Bolivia', 'Brasil', 'Perú', 'México', 'España', 'Estados Unidos', 'Otro'];
 
 export const RESOLVER = contacto.form.resolverOptions as readonly string[];
