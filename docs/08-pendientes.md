@@ -192,6 +192,16 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **`.env` local:** `POSTGRES_URL` apunta a `desarrollo`. Las demás variables de base que trajo `vercel env pull` (`DATABASE_URL`, `PGHOST`, etc.) siguen apuntando a `main`, pero el código no las usa. Volver a correr `npx vercel env pull .env` pisa el archivo y vuelve a apuntar a producción.
 - **Migraciones en producción:** se aplican recién cuando cada fase esté aprobada, con `npm run db:migrate` apuntando a `main`. Antes, confirmar que la restauración a un punto anterior de Neon esté disponible.
 
+## Registro de la construcción (portal, fase 1, paso 2: autenticación del panel, 29/09)
+
+- **Usuarios en la base** (tabla `admins`), uno por persona. Se crean o se les cambia la contraseña con `npm run admin:crear`, corrido en la terminal de quien configure: la contraseña no pasa por el chat. Cambiar la contraseña cierra las sesiones abiertas de ese usuario.
+- **Sesiones revocables:** la cookie lleva un token al azar y la base guarda solo su hash. Cierre a los 30 minutos sin uso y máximo de 12 horas. «Salir» revoca la sesión.
+- **Protección:** cookie `HttpOnly`, `Secure` y `SameSite=Strict`; chequeo de origen de Astro; token CSRF en todo lo que modifica datos; límite de 5 intentos fallidos de login cada 15 minutos por IP (la IP se guarda como HMAC, no en claro); el panel responde con `Cache-Control: no-store`.
+- **Corregido:** el login aceptaba cualquier destino en `?next=` (redirección abierta). Ahora solo acepta rutas del panel.
+- **Mensajes nuevos del panel** («Demasiados intentos fallidos...», aviso de panel sin configurar): texto propio, no está en los docs. Validar.
+- **Antes de publicar este cambio en producción:** aplicar la migración 002 en `main` y crear al menos un usuario ahí con `npm run admin:crear`; si no, el panel queda sin acceso. `SESSION_SECRET` ya existe en Vercel. `ADMIN_USER` y `ADMIN_PASSWORD_HASH` dejan de usarse y se pueden borrar de Vercel después del deploy.
+- **Pendiente:** no hay pantalla para dar de baja administradores. Por ahora se hace desde la base (`activo = false`).
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

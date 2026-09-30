@@ -2,10 +2,10 @@
 export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import { site } from '../../content/site';
-import { isAdminConfigured } from '../../lib/auth';
+import { hayAdmins, isAdminConfigured, safeNext } from '../../lib/auth';
 
-const next = Astro.url.searchParams.get('next') || '/admin';
-const configured = isAdminConfigured();
+const next = safeNext(Astro.url.searchParams.get('next'));
+const configured = isAdminConfigured() && (await hayAdmins());
 ---
 
 <Base title={`Panel | ${site.name}`} description="Acceso al panel de administración." noindex bare>
@@ -17,7 +17,7 @@ const configured = isAdminConfigured();
       {
         !configured ? (
           <p class="mt-8 rounded-xl border border-white/20 bg-white/5 p-5 text-sm text-white/80">
-            El panel todavía no está configurado (faltan las variables de entorno del admin). Avisale a quien esté armando el sitio.
+            El panel todavía no está configurado (falta la base de datos, SESSION_SECRET o un usuario administrador). Avisale a quien esté armando el sitio.
           </p>
         ) : (
           <form id="login-form" class="mt-8 space-y-5" novalidate>
@@ -49,16 +49,22 @@ const configured = isAdminConfigured();
       btn.disabled = true;
       const prev = btn.textContent;
       btn.textContent = 'Entrando…';
+      let message = 'No pudimos iniciar sesión. Probá de nuevo.';
       try {
         const res = await fetch('/api/admin/login', { method: 'POST', body: new FormData(form) });
-        if (!res.ok) throw new Error();
-        location.href = next;
+        if (res.ok) {
+          location.href = next;
+          return;
+        }
+        if (res.status === 401) message = 'Usuario o contraseña incorrectos.';
+        if (res.status === 429) message = 'Demasiados intentos fallidos. Probá de nuevo en 15 minutos.';
       } catch {
-        err.textContent = 'Usuario o contraseña incorrectos.';
-        err.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = prev;
+        // Error de red: queda el mensaje genérico.
       }
+      err.textContent = message;
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = prev;
     });
   </script>
 </Base>

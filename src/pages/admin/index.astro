@@ -79,6 +79,7 @@ const statusLabel: Record<Lead['resend_status'], string> = {
           <a href="https://analytics.google.com" target="_blank" rel="noopener" class="font-display text-sm font-medium text-white/75 hover:text-celeste">
             Ver tráfico en Google Analytics
           </a>
+          <span class="hidden font-display text-sm text-white/60 sm:inline">{Astro.locals.admin?.nombre}</span>
           <button id="logout" type="button" class="font-display text-sm font-semibold text-white hover:text-celeste">Salir</button>
         </div>
       </div>
@@ -211,7 +212,8 @@ const statusLabel: Record<Lead['resend_status'], string> = {
   <script type="application/json" id="leads-data" set:html={JSON.stringify(leads)} />
   <script>
     document.getElementById('logout')?.addEventListener('click', async () => {
-      await fetch('/api/admin/logout', { method: 'POST' });
+      const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+      await fetch('/api/admin/logout', { method: 'POST', headers: { 'x-csrf-token': csrf } });
       location.href = '/admin/login';
     });
 

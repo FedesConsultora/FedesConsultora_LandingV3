@@ -1,29 +1,36 @@
 import type { APIRoute } from 'astro';
-import { createSessionToken, isAdminConfigured, verifyPassword, SESSION_COOKIE, SESSION_MAX_AGE } from '../../../lib/auth';
+import { SESSION_COOKIE, SESSION_MAX_AGE, checkCredentials, createSession, isAdminConfigured } from '../../../lib/auth';
+import { clientIp, registrarFallo, superoLimite } from '../../../lib/limite';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  if (!isAdminConfigured()) {
-    return new Response(JSON.stringify({ ok: false, error: 'not_configured' }), { status: 500 });
-  }
+const json = (body: object, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+export const POST: APIRoute = async (context) => {
+  const { request, cookies } = context;
+  if (!isAdminConfigured()) return json({ ok: false, error: 'not_configured' }, 500);
+
+  const ip = clientIp(context);
+  if (await superoLimite('login', ip)) return json({ ok: false, error: 'too_many_attempts' }, 429);
 
   const data = await request.formData();
-  const username = String(data.get('username') ?? '').trim();
+  const usuario = String(data.get('username') ?? '').trim();
   const password = String(data.get('password') ?? '');
 
-  if (!username || !password || !verifyPassword(username, password)) {
+  const adminId = usuario && password ? await checkCredentials(usuario, password) : null;
+  if (!adminId) {
+    await registrarFallo('login', ip);
     // Mensaje genérico: no decir cuál de los dos campos falló.
-    return new Response(JSON.stringify({ ok: false, error: 'invalid_credentials' }), { status: 401 });
+    return json({ ok: false, error: 'invalid_credentials' }, 401);
   }
 
-  cookies.set(SESSION_COOKIE, createSessionToken(username), {
+  cookies.set(SESSION_COOKIE, await createSession(adminId), {
     httpOnly: true,
     secure: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     path: '/',
     maxAge: SESSION_MAX_AGE,
   });
-
-  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+  return json({ ok: true });
 };

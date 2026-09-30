@@ -47,6 +47,7 @@ const jsonld = graph(
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {Astro.locals.admin && <meta name="csrf-token" content={Astro.locals.admin.csrf} />}
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
