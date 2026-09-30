@@ -46,10 +46,10 @@ Los nombres son orientativos: adaptarlos al stack y a las convenciones del repo.
 ### 4.1 `leads`
 | Campo | Detalle |
 |---|---|
-| nombre, apellido, cargo | Texto |
+| nombre y apellido, cargo | Texto. Nombre y apellido en un solo campo, igual que el formulario web (decidido 29/09) |
 | empresa, sitio web | Texto |
 | país, ciudad | Listas controladas |
-| tamaño | **Rango normalizado**: 1-10, 11-50, 51-200, 201-500, 501-1000, 1000+, desconocido. Los rangos del formulario web (Hasta 10, 11 a 50, 51 a 200, 201 a 500, Más de 500) se mapean a estos |
+| tamaño | **Rango normalizado**, el mismo del formulario web (decidido 29/09): 1-10, 11-50, 51-200, 201-500, más de 500, desconocido |
 | sector | **Lista controlada** (ver 4.6), un solo idioma |
 | linkedin_url, email, teléfono | Opcionales |
 | fuente | Lista: LinkedIn (búsqueda propia), recomendación, contenido entrante, web, evento, otro |
@@ -69,7 +69,7 @@ Los nombres son orientativos: adaptarlos al stack y a las convenciones del repo.
 |---|---|
 | lead_id | Relación con `leads` (1 lead puede tener más de una landing en el futuro) |
 | titulo | Por defecto "Diagnóstico de [Empresa]" |
-| token | Aleatorio, criptográficamente seguro, de al menos 128 bits. **Se guarda solo su hash** |
+| token | Aleatorio, criptográficamente seguro, de al menos 128 bits. La búsqueda se hace **solo por su hash**. Además se guarda una **copia cifrada** (AES-256-GCM, clave en variable de entorno) para que el panel pueda volver a mostrar el link y los mails automáticos puedan armarlo (decidido 29/09). El token nunca se guarda en claro |
 | estado | borrador, activa, vencida, revocada |
 | entregada_el | Marca de tiempo de la activación. Se usa para los desbloqueos programados |
 | vence_el | Opcional |
@@ -124,6 +124,7 @@ Plantillas editables (ver 7.3) y reglas de los recordatorios automáticos (ver 7
 - **URL:** `/diagnostico/[token]`. Si el token no existe, venció o fue revocado, mostrar una página genérica sin revelar cuál fue el motivo.
 - **No indexable:** `noindex` en metaetiqueta y encabezado, exclusión en `robots.txt`, sin aparecer en el sitemap y con `Referrer-Policy: no-referrer`.
 - **Sin login.** El link es la credencial: tratarlo como un secreto. Limitar la tasa de intentos por IP para frenar adivinación.
+- **Título de la pestaña genérico** («Tu diagnóstico | Fedes Consultora»), sin el nombre de la empresa, y sin Open Graph: las vistas previas de links en WhatsApp o mail no deben mostrar datos del prospecto (decidido 29/09). Los accesos de esos bots de vista previa y de administradores con sesión no se cuentan como visitas.
 - **Contenido:** solo las etapas desbloqueadas. Las bloqueadas se muestran como próximas piezas, con título y estado, pero **sin contenido en el HTML enviado al navegador**.
 - **Diseño:** identidad visual de Fedes (ver `CLAUDE.md`), responsive y coherente con el sitio. Sin emojis. ⚠️ PENDIENTE: modo oscuro (el sitio público hoy no lo tiene).
 - **Llamados a la acción:** agendar la reunión de propuesta y contacto por WhatsApp (+54 9 221 309-2529, confirmado vigente). Mientras no esté cal.com, el botón de agendar usa **el mismo link de Google Calendar que hoy usa `/contacto`** (configurado en un solo lugar).
@@ -141,7 +142,7 @@ Cada landing se crea desde esta plantilla y se edita a medida: se pueden sumar e
 
 ## 6. Panel de administración
 
-Ruta `/admin`, detrás de login. Sesiones seguras, protección CSRF, límite de intentos de login y cierre de sesión por inactividad.
+Ruta `/admin`, detrás de login. Sesiones seguras guardadas en la base (revocables), protección CSRF, límite de intentos de login y cierre de sesión por inactividad a los 30 minutos, con un máximo de 12 horas (decidido 29/09).
 
 ### 6.1 Pipeline de leads
 - Vista **tablero** (columnas por estado, arrastrar y soltar) y vista **lista** (filtros por estado, sector, país, tamaño, fuente y puntaje; orden y búsqueda).
@@ -223,7 +224,7 @@ Editables desde el panel, con variables del lead (nombre, empresa, link a la lan
 
 - Ley 25.326 (Argentina): registrar base legal y consentimiento, permitir acceso, rectificación y supresión. ⚠️ PENDIENTE: validación con un abogado, incluida la eventual inscripción de la base de datos, los recordatorios automáticos y la medición de aperturas.
 - Todos los datos en tránsito por HTTPS. Secretos en variables de entorno, nunca en el repo.
-- Tokens de landing: guardar solo el hash, comparar en tiempo constante.
+- Tokens de landing: buscar por hash y comparar en tiempo constante. La copia cifrada solo se descifra del lado del servidor, para mostrar el link en el panel o armar un mail.
 - El contenido de las landings y los mails recibidos pueden describir la situación de una empresa: tratarlos como confidenciales. Nada de analítica de terceros en `/diagnostico/*` y `/admin/*`.
 - Webhooks del proveedor de mails (entrega, rebotes, respuestas) verificados con firma.
 - Retención de datos: ⚠️ PENDIENTE (definir por cuánto tiempo se conserva un lead sin actividad).
