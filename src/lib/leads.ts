@@ -225,3 +225,27 @@ export async function registrarFormulario(f: EnvioFormulario) {
   ]);
   return lead.id as number;
 }
+
+// Carga (o cambia) la fecha de la sesión de diagnóstico. Si el lead todavía estaba en la etapa de
+// contacto, pasa a "Agendó" automáticamente (decidido el 29/09), con su entrada en el historial.
+export async function agendarSesion(id: number, fechaSesion: string, adminId: number) {
+  await db()`
+    WITH previo AS (SELECT id, estado FROM leads WHERE id = ${id}),
+    cambio AS (
+      UPDATE leads SET
+        fecha_sesion = ${fechaSesion},
+        estado = CASE WHEN estado IN ('identificado', 'contactado', 'respondio') THEN 'agendo' ELSE estado END,
+        actualizado_el = now()
+      WHERE id = ${id}
+      RETURNING id, estado
+    ),
+    historial AS (
+      INSERT INTO historial_estados (lead_id, estado_anterior, estado_nuevo, admin_id, origen)
+      SELECT cambio.id, previo.estado, cambio.estado, ${adminId}, 'panel' FROM cambio, previo
+      WHERE cambio.estado <> previo.estado
+    )
+    INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+    SELECT ${adminId}, 'agendar_sesion', 'lead', cambio.id, jsonb_build_object('de', previo.estado, 'a', cambio.estado)
+    FROM cambio, previo
+  `;
+}

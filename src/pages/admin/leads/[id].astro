@@ -2,9 +2,11 @@
 export const prerender = false;
 import AdminLayout from '../../../components/admin/AdminLayout.astro';
 import LeadForm from '../../../components/admin/LeadForm.astro';
-import { LeadError, actualizarLead, cambiarEstado, listarSectores, obtenerLead } from '../../../lib/leads';
-import { ESTADOS, FUENTES, MOTIVOS_PERDIDO, etiqueta, parseCambioEstado, parseLead, type Errores } from '../../../lib/pipeline';
-import { ETIQUETA_ESTADO_LANDING, LandingError, crearLanding, estadoVisible, listarLandingsDeLead } from '../../../lib/landings';
+import { LeadError, actualizarLead, agendarSesion, cambiarEstado, listarSectores, obtenerLead } from '../../../lib/leads';
+import { ESTADOS, FUENTES, MOTIVOS_PERDIDO, etiqueta, fechaHoraArgentina, parseCambioEstado, parseLead, type Errores } from '../../../lib/pipeline';
+import { ETIQUETA_ESTADO_LANDING, LandingError, activarLanding, crearLanding, estadoVisible, listarLandingsDeLead, resumenLandingDeLead } from '../../../lib/landings';
+import { seguimiento } from '../../../lib/proceso';
+import SeguimientoLead from '../../../components/admin/SeguimientoLead.astro';
 
 const id = Number(Astro.params.id);
 const adminId = Astro.locals.admin!.id;
@@ -28,6 +30,19 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
         return Astro.redirect(`/admin/leads/${id}?guardado=1`, 303);
       }
       valoresForm = Object.fromEntries(form);
+    } else if (accion === 'agendar') {
+      const fecha = fechaHoraArgentina(String(form.get('fecha_sesion') ?? ''));
+      if (!fecha) error = 'Elegí la fecha y la hora de la sesión.';
+      else {
+        await agendarSesion(id, fecha, adminId);
+        return Astro.redirect(`/admin/leads/${id}?agendada=1`, 303);
+      }
+    } else if (accion === 'entregar_landing') {
+      const landingId = Number(form.get('landing_id'));
+      // La landing tiene que ser de este lead.
+      if (!(await listarLandingsDeLead(id)).some((l) => l.id === landingId)) throw new LandingError('La landing no es de este lead.');
+      await activarLanding(landingId, adminId);
+      return Astro.redirect(`/admin/leads/${id}?entregada=1`, 303);
     } else if (accion === 'crear_landing') {
       const landingId = await crearLanding(id, adminId);
       return Astro.redirect(`/admin/landings/${landingId}`, 303);
@@ -48,7 +63,8 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
 
 const datos = Number.isInteger(id) ? await obtenerLead(id) : null;
 if (!datos) Astro.response.status = 404;
-const landings = datos ? await listarLandingsDeLead(id) : [];
+const [landings, resumenLanding] = datos ? await Promise.all([listarLandingsDeLead(id), resumenLandingDeLead(id)]) : [[], null];
+const seg = datos ? seguimiento(datos.lead, resumenLanding) : null;
 
 const aviso = Astro.url.searchParams.has('creado')
   ? 'Lead creado.'
@@ -56,7 +72,11 @@ const aviso = Astro.url.searchParams.has('creado')
     ? 'Cambios guardados.'
     : Astro.url.searchParams.has('estado')
       ? 'Estado actualizado.'
-      : null;
+      : Astro.url.searchParams.has('agendada')
+        ? 'Fecha de la sesión guardada.'
+        : Astro.url.searchParams.has('entregada')
+          ? 'Landing entregada: el lead ya puede abrir el link.'
+          : null;
 
 const fechaHora = (d: Date | string | null) =>
   d
@@ -91,6 +111,7 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
 
         {aviso && <p class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}
         {error && <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]">{error}</p>}
+        {seg && <SeguimientoLead seguimiento={seg} fechaSesion={datos.lead.fecha_sesion} />}
         {Object.keys(errores).length > 0 && (
           <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]">Revisá los campos marcados.</p>
         )}

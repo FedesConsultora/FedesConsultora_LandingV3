@@ -285,3 +285,20 @@ export async function moverEtapa(id: number, delta: -1 | 1, adminId: number) {
     auditar(adminId, 'mover', 'etapa', id, { landing_id: e.landing_id }),
   ]);
 }
+
+// Resumen de la landing más reciente del lead, para el seguimiento guiado de la ficha.
+export async function resumenLandingDeLead(leadId: number) {
+  const [r] = await db()`
+    SELECT l.id, l.estado, (l.vence_el IS NOT NULL AND l.vence_el < now()) AS vencida, l.entregada_el,
+           count(e.id)::int AS etapas,
+           count(e.id) FILTER (WHERE e.aprobada)::int AS aprobadas,
+           count(e.id) FILTER (WHERE e.modo_desbloqueo = 'al_entregar')::int AS al_entregar,
+           count(e.id) FILTER (WHERE e.modo_desbloqueo = 'al_entregar' AND NOT e.aprobada)::int AS al_entregar_sin_aprobar,
+           (SELECT count(*)::int FROM eventos v WHERE v.landing_id = l.id AND v.tipo = 'visita') AS visitas,
+           (SELECT max(v.creado_el) FROM eventos v WHERE v.landing_id = l.id AND v.tipo = 'visita') AS ultima_visita
+    FROM landings l LEFT JOIN etapas e ON e.landing_id = l.id
+    WHERE l.lead_id = ${leadId}
+    GROUP BY l.id ORDER BY l.creada_el DESC LIMIT 1
+  `;
+  return (r ?? null) as import('./proceso').ResumenLanding | null;
+}
