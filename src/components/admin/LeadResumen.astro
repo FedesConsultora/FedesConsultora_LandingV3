@@ -1,0 +1,84 @@
+---
+// Datos del lead en modo lectura (la ficha abre así; "Editar" muestra el formulario).
+import { FUENTES, TAMANOS, etiqueta, fechaISO } from '../../lib/pipeline';
+import type { LeadFila } from '../../lib/leads';
+
+interface Props {
+  lead: LeadFila;
+}
+const { lead: l } = Astro.props;
+const TZ = 'America/Argentina/Buenos_Aires';
+
+const sesion = l.fecha_sesion
+  ? new Date(l.fecha_sesion).toLocaleString('es-AR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  : null;
+const fechaPaso = fechaISO(l.fecha_proximo_paso);
+const ubicacion = [l.ciudad, l.pais].filter(Boolean).join(', ');
+// Los links externos ya se validaron como http(s) al guardarse; se muestran sin el esquema.
+const sinEsquema = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+type Fila = [string, string | null, string?]; // etiqueta, valor, href opcional
+const grupos: [string, Fila[]][] = [
+  [
+    'Persona y empresa',
+    [
+      ['Nombre y apellido', l.nombre],
+      ['Cargo', l.cargo],
+      ['Empresa', l.empresa],
+      ['Sitio web', l.sitio_web && sinEsquema(l.sitio_web), l.sitio_web ?? undefined],
+      ['Sector', l.sector],
+      ['Tamaño', l.tamano === 'desconocido' ? null : etiqueta(TAMANOS, l.tamano)],
+      ['Ubicación', ubicacion || null],
+    ],
+  ],
+  [
+    'Contacto',
+    [
+      ['Email', l.email, l.email ? `mailto:${l.email}` : undefined],
+      ['Teléfono o WhatsApp', l.whatsapp],
+      ['LinkedIn', l.linkedin_url && sinEsquema(l.linkedin_url), l.linkedin_url ?? undefined],
+    ],
+  ],
+  [
+    'Seguimiento',
+    [
+      ['Fuente', etiqueta(FUENTES, l.fuente)],
+      ['Qué quiere resolver', l.resolver],
+      ['Sesión de diagnóstico', sesion],
+      ['Próximo paso', l.proximo_paso ? `${l.proximo_paso}${fechaPaso ? ` (${fechaPaso.split('-').reverse().join('/')})` : ''}` : null],
+    ],
+  ],
+];
+---
+
+<div class="space-y-7">
+  {
+    grupos.map(([titulo, filas]) => (
+      <section>
+        <h2 class="eyebrow text-ink/50">{titulo}</h2>
+        <dl class="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          {filas.map(([etq, valor, href]) => (
+            <div>
+              <dt class="font-display text-xs text-ink/50">{etq}</dt>
+              <dd class="mt-0.5 font-display text-sm text-ink">
+                {!valor ? (
+                  <span class="text-ink/30">—</span>
+                ) : href ? (
+                  <a href={href} class="break-all text-azul hover:underline" {...(href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                    {valor}
+                  </a>
+                ) : (
+                  <span class="first-letter:uppercase">{valor}</span>
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    ))
+  }
+  <section>
+    <h2 class="eyebrow text-ink/50">Notas</h2>
+    {l.notas ? <p class="mt-3 whitespace-pre-line text-ink/80">{l.notas}</p> : <p class="mt-3 font-display text-sm text-ink/30">Sin notas.</p>}
+  </section>
+</div>

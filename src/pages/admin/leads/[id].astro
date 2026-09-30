@@ -7,6 +7,7 @@ import { ESTADOS, FUENTES, MOTIVOS_PERDIDO, etiqueta, fechaHoraArgentina, parseC
 import { ETIQUETA_ESTADO_LANDING, LandingError, activarLanding, crearLanding, estadoVisible, listarLandingsDeLead, resumenLandingDeLead } from '../../../lib/landings';
 import { seguimiento } from '../../../lib/proceso';
 import SeguimientoLead from '../../../components/admin/SeguimientoLead.astro';
+import LeadResumen from '../../../components/admin/LeadResumen.astro';
 
 const id = Number(Astro.params.id);
 const adminId = Astro.locals.admin!.id;
@@ -63,6 +64,8 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
 
 const datos = Number.isInteger(id) ? await obtenerLead(id) : null;
 if (!datos) Astro.response.status = 404;
+// La ficha abre en modo lectura. El formulario se muestra con "Editar" o si al guardar hubo errores.
+const editando = Astro.url.searchParams.has('editar') || valoresForm !== null;
 const [landings, resumenLanding] = datos ? await Promise.all([listarLandingsDeLead(id), resumenLandingDeLead(id)]) : [[], null];
 const seg = datos ? seguimiento(datos.lead, resumenLanding) : null;
 
@@ -117,8 +120,23 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
         )}
 
         <div class="mt-8 grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
-          <div class="admin-card">
-            <LeadForm valores={valoresForm ?? datos.lead} sectores={sectores} errores={errores} submit="Guardar cambios" />
+          <div class="admin-card" id="datos">
+            {editando ? (
+              <>
+                <div class="mb-6 flex items-center justify-between">
+                  <h2 class="font-display text-lg font-semibold">Editar datos</h2>
+                  <a href={`/admin/leads/${id}`} class="font-display text-sm text-ink/60 underline">Cancelar</a>
+                </div>
+                <LeadForm valores={valoresForm ?? datos.lead} sectores={sectores} errores={errores} submit="Guardar cambios" />
+              </>
+            ) : (
+              <>
+                <div class="mb-6 flex justify-end">
+                  <a href={`/admin/leads/${id}?editar=1#datos`} class="btn btn-outline-dark !px-4 !py-2 !text-xs">Editar</a>
+                </div>
+                <LeadResumen lead={datos.lead} />
+              </>
+            )}
           </div>
 
           <div class="space-y-6">
@@ -137,10 +155,13 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
                   </li>
                 ))}
               </ul>
-              <form method="post" class="mt-4">
-                <input type="hidden" name="csrf" value={csrf} />
-                <button name="accion" value="crear_landing" class="btn btn-outline-dark !py-2 !text-xs">Crear landing</button>
-              </form>
+              {/* Si ya hay un borrador, se sigue trabajando en ese: no se ofrece crear otro. */}
+              {!landings.some((l) => l.estado === 'borrador') && (
+                <form method="post" class="mt-4">
+                  <input type="hidden" name="csrf" value={csrf} />
+                  <button name="accion" value="crear_landing" class="btn btn-outline-dark !py-2 !text-xs">Crear landing</button>
+                </form>
+              )}
             </section>
 
             <section class="admin-card">

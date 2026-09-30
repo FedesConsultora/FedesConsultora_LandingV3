@@ -252,7 +252,7 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 
 1. En Neon (Vercel > Storage > Open in Neon), confirmar que la restauración a un punto anterior esté disponible para `main`.
 2. En Vercel > Settings > Environment Variables, cargar `LANDING_TOKEN_KEY` (`openssl rand -base64 32`), distinta de la de desarrollo. Confirmar que `SESSION_SECRET` exista.
-3. Aplicar las migraciones en `main`: con `POSTGRES_URL` apuntando a producción, `npm run db:migrate`. Aplica 001 (sin cambios sobre lo existente), 002, 003 (fusiona los 3 leads con el mismo email en uno, sin perder los envíos) y 004.
+3. Aplicar las migraciones en `main`: con `POSTGRES_URL` apuntando a producción, `npm run db:migrate`. Aplica 001 (sin cambios sobre lo existente), 002, 003 (fusiona los 3 leads con el mismo email en uno, sin perder los envíos), 004, 005 y 006 (activa la extensión `unaccent` para la búsqueda).
 4. Crear los usuarios del panel en producción con `npm run admin:crear` (misma base). Sin esto nadie puede entrar al panel.
 5. Volver a apuntar el `.env` local a `desarrollo`.
 6. Publicar el código (deploy).
@@ -262,6 +262,15 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 ## Fase 2 (mails): en pausa (29/09)
 
 El plan técnico se presentó y quedó en pausa a pedido del cliente, para mejorar antes el flujo del panel. Al retomarla, faltan: aprobación del plan, textos de las plantillas, si se reenvía copia de las respuestas a `info@`, criterio para adjuntos, cuenta y clave de Resend, acceso al DNS de `fedesconsultora.com` y un entorno publicado para probar los webhooks.
+
+## Registro de la construcción (mejoras del flujo del panel, 29/09)
+
+- **Seguimiento guiado:** la ficha del lead muestra la línea de pasos (Contacto, Sesión agendada, Sesión realizada, Landing en armado, Landing entregada, Propuesta, Cliente) y la próxima acción con su botón. Cargar la fecha de la sesión pasa el lead a «Agendó» (decidido el 29/09). Entregar la landing no cambia el estado del pipeline: es un paso del proceso.
+- **Inicio con pendientes (`/admin`):** próximos pasos de hoy y vencidos, sesiones pasadas sin marcar, sesiones de los próximos 7 días, leads web sin tocar, landings en armado y landings entregadas sin visitas. Este último aviso no tiene plazo: aparece desde la entrega y se quita con «Descartar aviso» o cuando llega la primera visita (decidido el 29/09).
+- **Tablero (`/admin/leads`):** columnas por estado con arrastrar y soltar (pide el motivo para «Perdido»), vista de lista con CSV, búsqueda sin distinguir acentos y filtros por fuente y sector. En celulares, el estado se cambia con un selector en cada tarjeta.
+- **Ficha en modo lectura** con botón «Editar». **Editor de landing sin recargas**, con aviso flotante. No se pudo medir en el navegador de pruebas que se conserve la posición al guardar (ese entorno no permite desplazarse por código): confirmarlo en uso real.
+- **Corregido:** un doble clic en «Crear landing» creaba dos landings (pasó en `desarrollo`: el lead ficticio «Logística Ejemplo SA» quedó con dos borradores, que se pueden borrar). Ahora los botones se deshabilitan mientras se envía el formulario, y la base garantiza un solo borrador por lead aun con pedidos simultáneos.
+- **Textos nuevos del panel** (títulos de pasos, próximas acciones, secciones del inicio): texto propio, a validar.
 
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
