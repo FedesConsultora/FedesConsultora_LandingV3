@@ -1,6 +1,6 @@
--- Esquema del panel de administración. Una sola tabla: cada envío del formulario de Contacto
--- se guarda acá, independientemente de si el mail de Resend se pudo enviar o no.
--- Sin datos de tráfico (eso lo cubre Google Analytics): esta tabla es solo leads reales.
+-- 001: esquema inicial del panel, tal como estaba en db/schema.sql antes del sistema de migraciones.
+-- Cada envío del formulario de Contacto se guarda en `leads`, independientemente de si el mail de
+-- Resend se pudo enviar o no. Es idempotente: en la base que ya tiene la tabla no cambia nada.
 
 CREATE TABLE IF NOT EXISTS leads (
   id SERIAL PRIMARY KEY,

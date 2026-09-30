@@ -31,7 +31,7 @@ if (hasDb()) {
     leads = rows.map((r) => ({ ...r, created_at: new Date(r.created_at).toISOString() }));
   } catch (e) {
     console.error('[admin] Error de conexión a la base', e);
-    dbError = 'No pudimos conectar con la base de datos. Revisá que la tabla "leads" exista (node scripts/migrate.mjs).';
+    dbError = 'No pudimos conectar con la base de datos. Revisá que la tabla "leads" exista (npm run db:migrate).';
   }
 } else {
   dbError = 'Todavía no hay una base de datos conectada (falta POSTGRES_URL).';
