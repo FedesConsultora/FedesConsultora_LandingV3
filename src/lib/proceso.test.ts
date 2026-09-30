@@ -34,10 +34,10 @@ describe('seguimiento guiado', () => {
     expect(s.accion.tipo).toBe('agendar');
   });
 
-  it('agendó con fecha futura: esperar, con opción de reprogramar', () => {
+  it('agendó con fecha futura: se puede marcar realizada igual, o reprogramar', () => {
     const s = seguimiento({ estado: 'agendo', fecha_sesion: despues }, null, ahora);
     expect(actual(s)).toBe('sesion_agendada');
-    expect(s.accion.tipo).toBe('ninguna');
+    expect(s.accion).toMatchObject({ tipo: 'estado', estado: 'sesion_realizada', titulo: 'Sesión agendada' });
     expect(s.secundaria?.tipo).toBe('agendar');
   });
 

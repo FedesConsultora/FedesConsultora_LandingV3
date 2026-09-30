@@ -1,14 +1,16 @@
 ---
 // Línea de pasos del proceso y tarjeta de próxima acción, arriba de la ficha del lead.
 // Cada botón es un POST a la ficha (funciona sin JavaScript).
-import { aInputFechaHora } from '../../lib/pipeline';
+import { ESTADOS, MOTIVOS_PERDIDO, aInputFechaHora, type Estado } from '../../lib/pipeline';
 import type { Accion, Seguimiento } from '../../lib/proceso';
 
 interface Props {
   seguimiento: Seguimiento;
   fechaSesion: Date | null;
+  estado: Estado;
+  motivoPerdido: string | null;
 }
-const { seguimiento: s, fechaSesion } = Astro.props;
+const { seguimiento: s, fechaSesion, estado, motivoPerdido } = Astro.props;
 const csrf = Astro.locals.admin?.csrf ?? '';
 
 const fechaTexto = fechaSesion
@@ -66,7 +68,7 @@ const acciones = [s.accion, s.secundaria].filter(Boolean) as Accion[];
         <div class:list={[i === 0 ? '' : 'md:border-l md:border-ink/10 md:pl-6']}>
           <p class="eyebrow text-ink/50">{i === 0 ? 'Próxima acción' : 'También'}</p>
           <p class:list={['mt-2 font-display font-semibold', i === 0 ? 'text-lg' : 'text-base']}>{a.titulo}</p>
-          {i === 0 && a.tipo === 'ninguna' && fechaTexto && s.pasos.some((p) => p.clave === 'sesion_agendada' && p.estado === 'actual') && (
+          {i === 0 && fechaTexto && s.pasos.some((p) => p.clave === 'sesion_agendada' && p.estado === 'actual') && (
             <p class="mt-1 text-ink/70 first-letter:uppercase">{fechaTexto}</p>
           )}
           {a.detalle && <p class="mt-1 text-sm text-ink/60">{a.detalle}</p>}
@@ -110,4 +112,39 @@ const acciones = [s.accion, s.secundaria].filter(Boolean) as Accion[];
       ))
     }
   </div>
+
+  <!-- Cualquier otro cambio de estado (saltear pasos, volver atrás o marcar como perdido). -->
+  <form method="post" class="mt-5 flex flex-wrap items-end gap-3 border-t border-ink/10 pt-5" data-mover-estado>
+    <input type="hidden" name="csrf" value={csrf} />
+    <input type="hidden" name="accion" value="estado" />
+    <div>
+      <label for="mover-estado" class="admin-label">Mover a otro estado</label>
+      <select id="mover-estado" name="estado" class="admin-input !w-auto">
+        {ESTADOS.map((e) => <option value={e.codigo} selected={e.codigo === estado}>{e.etiqueta}</option>)}
+      </select>
+    </div>
+    <div data-motivo class:list={[estado !== 'perdido' && 'js-oculto']}>
+      <label for="mover-motivo" class="admin-label">Motivo (para «Perdido»)</label>
+      <select id="mover-motivo" name="motivo_perdido" class="admin-input !w-auto">
+        <option value="">Elegí un motivo</option>
+        {MOTIVOS_PERDIDO.map((m) => <option value={m.codigo} selected={m.codigo === motivoPerdido}>{m.etiqueta}</option>)}
+      </select>
+    </div>
+    <button class="btn btn-outline-dark !px-5 !py-2 !text-xs">Mover</button>
+  </form>
 </section>
+
+<style>
+  /* Sin JavaScript el motivo se ve siempre; con JavaScript, solo si se elige "Perdido". */
+  :global(.js) .js-oculto {
+    display: none;
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-mover-estado]').forEach((form) => {
+    const estado = form.querySelector<HTMLSelectElement>('select[name="estado"]')!;
+    const motivo = form.querySelector<HTMLElement>('[data-motivo]')!;
+    estado.addEventListener('change', () => motivo.classList.toggle('js-oculto', estado.value !== 'perdido'));
+  });
+</script>

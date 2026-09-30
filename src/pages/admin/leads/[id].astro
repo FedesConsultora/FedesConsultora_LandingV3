@@ -114,7 +114,7 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
 
         {aviso && <p class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}
         {error && <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]">{error}</p>}
-        {seg && <SeguimientoLead seguimiento={seg} fechaSesion={datos.lead.fecha_sesion} />}
+        {seg && <SeguimientoLead seguimiento={seg} fechaSesion={datos.lead.fecha_sesion} estado={datos.lead.estado} motivoPerdido={datos.lead.motivo_perdido} />}
         {Object.keys(errores).length > 0 && (
           <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]">Revisá los campos marcados.</p>
         )}
@@ -162,30 +162,6 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
                   <button name="accion" value="crear_landing" class="btn btn-outline-dark !py-2 !text-xs">Crear landing</button>
                 </form>
               )}
-            </section>
-
-            <section class="admin-card">
-              <h2 class="eyebrow text-ink/50">Estado</h2>
-              <form method="post" class="mt-4 space-y-4">
-                <input type="hidden" name="csrf" value={csrf} />
-                <input type="hidden" name="accion" value="estado" />
-                <div>
-                  <label for="estado" class="admin-label">Estado del pipeline</label>
-                  <select id="estado" name="estado" class="admin-input">
-                    {ESTADOS.map((e) => <option value={e.codigo} selected={datos.lead.estado === e.codigo}>{e.etiqueta}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label for="motivo_perdido" class="admin-label">Motivo (solo si es «Perdido»)</label>
-                  <select id="motivo_perdido" name="motivo_perdido" class="admin-input">
-                    <option value="">—</option>
-                    {MOTIVOS_PERDIDO.map((m) => (
-                      <option value={m.codigo} selected={datos.lead.motivo_perdido === m.codigo}>{m.etiqueta}</option>
-                    ))}
-                  </select>
-                </div>
-                <button type="submit" class="btn btn-outline-dark !py-2 !text-xs">Cambiar estado</button>
-              </form>
             </section>
 
             <section class="admin-card">

@@ -111,9 +111,10 @@ function accionPara(
       return { accion: { tipo: 'agendar', titulo: 'Agendar la sesión de diagnóstico', boton: 'Guardar fecha' } };
     case 'agendo': {
       const fecha = lead.fecha_sesion ? new Date(lead.fecha_sesion) : null;
+      // Se puede marcar como realizada aunque la fecha no haya llegado (por ejemplo, si se adelantó).
       if (fecha && fecha > ahora) {
         return {
-          accion: { tipo: 'ninguna', titulo: 'Sesión agendada', detalle: 'Cuando se haga, marcala como realizada.' },
+          accion: { tipo: 'estado', titulo: 'Sesión agendada', boton: 'Marcar sesión realizada', estado: 'sesion_realizada' },
           secundaria: { tipo: 'agendar', titulo: 'Cambiar la fecha', boton: 'Guardar fecha' },
         };
       }
