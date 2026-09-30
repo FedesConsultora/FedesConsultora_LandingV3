@@ -1,0 +1,43 @@
+---
+// Bandeja de respuestas de los leads. Las no leídas primero.
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import MailsCabecera from '../../../components/admin/MailsCabecera.astro';
+import { listarRecibidos } from '../../../lib/mails';
+
+const TZ = 'America/Argentina/Buenos_Aires';
+const recibidos = await listarRecibidos();
+const fecha = (d: Date) => new Date(d).toLocaleString('es-AR', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+---
+
+<AdminLayout title="Mails">
+  <MailsCabecera activa="recibidos" />
+
+  {
+    recibidos.length === 0 ? (
+      <p class="admin-card mt-6 font-display text-sm text-ink/55">
+        Todavía no hay respuestas. Cuando un lead responda un mail enviado desde el panel, aparece acá y en su ficha.
+      </p>
+    ) : (
+      <ul class="mt-6 divide-y divide-ink/5 overflow-hidden rounded-2xl bg-white">
+        {recibidos.map((m) => (
+          <li>
+            <a href={`/admin/mails/${m.id}`} class="flex items-start gap-4 px-5 py-4 hover:bg-ink/[0.02]">
+              <span class:list={['mt-2 h-2 w-2 shrink-0 rounded-full', m.leido_el ? 'bg-transparent' : 'bg-azul']} aria-label={m.leido_el ? undefined : 'Sin leer'} />
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-baseline justify-between gap-2">
+                  <span class:list={['font-display text-sm', m.leido_el ? 'text-ink/70' : 'font-bold text-ink']}>
+                    {m.empresa ?? m.de}
+                  </span>
+                  <span class="font-display text-xs text-ink/45">{fecha(m.recibido_el)}</span>
+                </span>
+                <span class:list={['block truncate font-display text-sm', m.leido_el ? 'text-ink/60' : 'font-semibold text-ink']}>{m.asunto}</span>
+                <span class="block truncate text-sm text-ink/50">{m.extracto}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</AdminLayout>

@@ -1,0 +1,102 @@
+---
+// Editar y aprobar una plantilla de mail, con vista previa (datos de ejemplo).
+export const prerender = false;
+import AdminLayout from '../../../../components/admin/AdminLayout.astro';
+import { mails as M } from '../../../../content/mails';
+import { MailError, aprobarPlantilla, guardarPlantilla, listarPlantillas } from '../../../../lib/mails';
+import { VARIABLES, renderHtml, renderTexto } from '../../../../lib/mails-core';
+
+const id = Number(Astro.params.id);
+const adminId = Astro.locals.admin!.id;
+const csrf = Astro.locals.admin!.csrf;
+let error: string | null = null;
+let borrador: { asunto: string; cuerpo: string } | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    if (form.get('accion') === 'guardar') {
+      borrador = { asunto: String(form.get('asunto') ?? ''), cuerpo: String(form.get('cuerpo') ?? '') };
+      await guardarPlantilla(id, borrador.asunto, borrador.cuerpo, adminId);
+      return Astro.redirect(`/admin/mails/plantillas/${id}?ok=guardada`, 303);
+    }
+    if (form.get('accion') === 'aprobar') {
+      // Se aprueba lo guardado: si hay cambios sin guardar, primero hay que guardarlos.
+      const guardada = (await listarPlantillas()).find((x) => x.id === id);
+      borrador = { asunto: String(form.get('asunto') ?? ''), cuerpo: String(form.get('cuerpo') ?? '') };
+      if (guardada && (guardada.asunto !== borrador.asunto.trim() || guardada.cuerpo !== borrador.cuerpo.trim().replace(/\r\n/g, '\n'))) {
+        throw new MailError('Hay cambios sin guardar. Guardá la plantilla y después aprobala.');
+      }
+      borrador = null;
+      await aprobarPlantilla(id, adminId);
+      return Astro.redirect(`/admin/mails/plantillas/${id}?ok=aprobada`, 303);
+    }
+  } catch (e) {
+    if (!(e instanceof MailError)) throw e;
+    error = e.message;
+  }
+}
+
+const p = (await listarPlantillas()).find((x) => x.id === id);
+if (!p) Astro.response.status = 404;
+const actual = borrador ?? (p ? { asunto: p.asunto, cuerpo: p.cuerpo } : { asunto: '', cuerpo: '' });
+const ok = { guardada: 'Plantilla guardada. Queda sin aprobar hasta que alguien la apruebe.', aprobada: 'Plantilla aprobada.' }[Astro.url.searchParams.get('ok') ?? ''];
+
+// Vista previa con datos de ejemplo.
+const ejemplo = { nombre: 'Nombre Ejemplo', empresa: 'Empresa Ejemplo', etapas: 'Caso anónimo del sector', links: { landing: '#', agendar: '#' } };
+const previa = p
+  ? renderHtml(actual.cuerpo, ejemplo, { botonLanding: M.botonLanding, botonAgendar: M.botonAgendar, pie: M.pieLegal, bajaTexto: M.bajaEnlace, bajaUrl: '#' })
+  : '';
+---
+
+<AdminLayout title={p ? p.nombre : 'Plantilla no encontrada'}>
+  <a href="/admin/mails/plantillas" class="font-display text-sm text-ink/50 hover:text-azul">← Plantillas</a>
+  {
+    !p ? (
+      <h1 class="mt-3 font-display text-2xl font-bold">Esta plantilla no existe.</h1>
+    ) : (
+      <>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <h1 class="font-display text-2xl font-bold text-ink md:text-3xl">{p.nombre}</h1>
+          <span class:list={['rounded-full px-2.5 py-1 font-display text-[11px] font-semibold', p.aprobada ? 'bg-azul text-white' : 'bg-ink/[0.06] text-ink/60']}>
+            {p.aprobada ? `Aprobada por ${p.aprobada_por_nombre ?? '—'}` : 'Sin aprobar'}
+          </span>
+        </div>
+        {ok && <p class="mt-5 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{ok}</p>}
+        {error && <p class="mt-5 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]" role="alert">{error}</p>}
+
+        <div class="mt-6 grid gap-6 xl:grid-cols-2">
+          <form method="post" class="admin-card space-y-4">
+            <input type="hidden" name="csrf" value={csrf} />
+            <div>
+              <label for="asunto" class="admin-label">Asunto</label>
+              <input id="asunto" name="asunto" value={actual.asunto} maxlength="200" class="admin-input" />
+            </div>
+            <div>
+              <label for="cuerpo" class="admin-label">Texto</label>
+              <textarea id="cuerpo" name="cuerpo" rows="12" maxlength="10000" class="admin-input font-mono !text-[13px] leading-relaxed">{actual.cuerpo}</textarea>
+              <p class="mt-2 font-display text-xs text-ink/55">
+                Variables: {VARIABLES.map((v) => `{{${v}}}`).join(', ')}. Un link solo en su párrafo se muestra como botón.
+                Sin emojis ni precios. El pie legal y el link de baja se agregan solos.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button name="accion" value="guardar" class="btn btn-outline-dark !py-2">Guardar</button>
+              {!p.aprobada && (
+                <button name="accion" value="aprobar" class="btn btn-primary !py-2" formnovalidate>
+                  Aprobar
+                </button>
+              )}
+            </div>
+          </form>
+
+          <section class="admin-card">
+            <p class="admin-label">Vista previa (datos de ejemplo)</p>
+            <p class="mt-2 font-display text-sm font-semibold text-ink">{renderTexto(actual.asunto, ejemplo)}</p>
+            <iframe title="Vista previa del mail" sandbox="" srcdoc={previa} class="mt-3 h-[480px] w-full rounded-xl border border-ink/10 bg-[#F4F6F7]"></iframe>
+          </section>
+        </div>
+      </>
+    )
+  }
+</AdminLayout>

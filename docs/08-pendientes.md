@@ -259,27 +259,27 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 7. Prueba rápida en producción: login, envío del formulario de Contacto con un email de prueba, crear y entregar una landing de prueba, abrirla en una ventana privada, y borrarla.
 8. Borrar de Vercel `ADMIN_USER` y `ADMIN_PASSWORD_HASH`, que ya no se usan.
 
-## Fase 2 (mails): en pausa (29/09)
+## Registro de la construcción (fase 2: mails, 30/09)
 
-El plan técnico se presentó y quedó en pausa a pedido del cliente, para mejorar antes el flujo del panel. Al retomarla, faltan: aprobación del plan, textos de las plantillas, si se reenvía copia de las respuestas a `info@`, criterio para adjuntos, cuenta y clave de Resend, acceso al DNS de `fedesconsultora.com` y un entorno publicado para probar los webhooks.
+- **Se retomó a pedido del cliente**, junto con la vista de landings. Decisiones aplicadas: copia de cada respuesta a `info@` y adjuntos guardados solo con nombre y tamaño (los archivos quedan en Resend).
+- **Funciona en modo simulado** (sin clave de Resend): todo se registra y se puede revisar en el panel, pero ningún mail sale. Verificado con `npm run verificar:fase2`: 45 de 45, los 7 criterios de la fase 2 cumplidos.
+- **Qué hay:** sección «Mails» en el menú (recibidos con contador de no leídos, enviados y plantillas); «Enviar mail» en la ficha del lead, con plantillas, vista previa exacta y respuesta a mails recibidos; mail automático al entregar la landing o al desbloquear una etapa (casilla por etapa); registro de consentimiento para leads cargados a mano; aperturas y clics con links propios firmados; baja desde cada mail (también la baja en un clic de Gmail y Yahoo); estados de entrega, rebotes, spam y respuestas por webhook con firma verificada.
+- **Reglas:** solo a leads con email y consentimiento, sin baja y sin rebote; sin emojis ni montos; los mails automáticos solo con plantillas aprobadas (editar una plantilla le quita la aprobación). **Ningún mail real sale mientras haya textos «[PENDIENTE]»**, incluido el pie legal.
+- **Chequeo de origen de formularios:** pasó de Astro al middleware con las mismas reglas, para poder aceptar la baja en un clic (llega sin cabecera `Origin`) solo en esa ruta. El resto sigue igual (verificado).
+- **Los links de los mails no llevan el token de la landing**: redirigen en el momento del clic, y solo si el link de la landing no se regeneró.
+- **Textos pendientes:** asunto y texto de las 3 plantillas (entrega, nueva etapa, seguimiento); pie legal de los mails (`[TEXTO LEGAL PENDIENTE]`, con el abogado); textos de la página de baja y de los botones de los mails («Ver mi diagnóstico», «Agendar reunión»), en `src/content/mails.ts`. El texto de consentimiento de los leads cargados a mano queda como `[TEXTO LEGAL PENDIENTE]`.
+- **Medición de aperturas:** es aproximada (algunos programas de correo precargan o bloquean imágenes) y falta la validación del abogado y su mención en la Política de Privacidad.
+- **Recordatorios automáticos:** siguen en la fase 3 (faltan plazos y topes).
 
-## Registro de la construcción (mejoras del flujo del panel, 29/09)
+### Para activar los mails reales (además de la checklist de la fase 1)
 
-- **Seguimiento guiado:** la ficha del lead muestra la línea de pasos (Contacto, Sesión agendada, Sesión realizada, Landing en armado, Landing entregada, Propuesta, Cliente) y la próxima acción con su botón. Cargar la fecha de la sesión pasa el lead a «Agendó» (decidido el 29/09). Entregar la landing no cambia el estado del pipeline: es un paso del proceso.
-- **Inicio con pendientes (`/admin`):** próximos pasos de hoy y vencidos, sesiones pasadas sin marcar, sesiones de los próximos 7 días, leads web sin tocar, landings en armado y landings entregadas sin visitas. Este último aviso no tiene plazo: aparece desde la entrega y se quita con «Descartar aviso» o cuando llega la primera visita (decidido el 29/09).
-- **Tablero (`/admin/leads`):** columnas por estado con arrastrar y soltar (pide el motivo para «Perdido»), vista de lista con CSV, búsqueda sin distinguir acentos y filtros por fuente y sector. En celulares, el estado se cambia con un selector en cada tarjeta.
-- **Ficha en modo lectura** con botón «Editar». **Editor de landing sin recargas**, con aviso flotante. No se pudo medir en el navegador de pruebas que se conserve la posición al guardar (ese entorno no permite desplazarse por código): confirmarlo en uso real.
-- **Corregido:** un doble clic en «Crear landing» creaba dos landings (pasó en `desarrollo`: el lead ficticio «Logística Ejemplo SA» quedó con dos borradores, que se pueden borrar). Ahora los botones se deshabilitan mientras se envía el formulario, y la base garantiza un solo borrador por lead aun con pedidos simultáneos.
-- **Textos nuevos del panel** (títulos de pasos, próximas acciones, secciones del inicio): texto propio, a validar.
-
-## Registro de la construcción (rediseño visual del panel, 29/09)
-
-- **Referencia:** captura de un dashboard enviada por el cliente. Se tomó la estructura (menú lateral, indicadores en tarjetas con color, gráficos en tarjetas blancas, agenda al costado), no sus colores ni textos.
-- **Paleta:** solo los colores de marca (`#44718D`, `#71A0C0`, `#1D1D1B`) y variantes claras. El turquesa provisorio del sitio no se usa en el panel hasta que se confirme.
-- **Validación de color de los gráficos** (script de la guía de visualización de datos): azul y celeste se distinguen bien entre sí, también con daltonismo (diferencia 15,6; objetivo 8). Pero los colores de marca son de baja saturación, el negro queda fuera de la franja de luminosidad recomendada para series y el celeste tiene poco contraste con el blanco (2,7:1). Por eso ningún gráfico depende solo del color: leyenda, valores al pasar el mouse o con el teclado, separación de 2 px entre segmentos y una tabla con los datos debajo de cada gráfico. Si se confirma un color de acento, revisar la paleta de los gráficos.
-- **Inicio:** 4 indicadores (leads activos, sesiones de los próximos 7 días, landings entregadas y de sesión a cliente en los últimos 90 días), embudo del pipeline con el % de paso entre etapas, leads nuevos por semana según fuente (web, LinkedIn, otras), próximas sesiones y contadores de pendientes con el detalle debajo.
-- **Cómo se calcula el embudo:** leads creados en los últimos 90 días; cada uno cuenta hasta la etapa más avanzada a la que llegó según su historial (un lead perdido después de la sesión cuenta como que llegó a la sesión). «Landing entregada» cuenta los leads con una landing entregada. Validar estas definiciones.
-- **Menú lateral** en todas las pantallas del panel. En celulares se pliega bajo el botón «Menú» (funciona sin JavaScript). No se sumó «Landings» ni «Mails» al menú: no hay pantalla de listado de landings y los mails son la fase 2.
+1. Crear la cuenta de Resend y verificar `fedesconsultora.com` (registros SPF, DKIM y DMARC en el DNS). Confirmar que el plan incluya recepción de mails.
+2. Configurar un subdominio de recepción (por ejemplo `r.fedesconsultora.com`, registro MX que indica Resend) y cargar `MAIL_RESPUESTAS_DOMINIO`.
+3. Crear el webhook en Resend hacia `https://fedesconsultora.com/api/webhooks/resend` con los eventos de entrega, rebote, spam, fallo y recepción; cargar su secreto en `RESEND_WEBHOOK_SECRET`.
+4. Cargar en Vercel `RESEND_API_KEY`, `MAIL_LINKS_URL` (el dominio del sitio) y `MAIL_COPIA_RESPUESTAS=info@fedesconsultora.com`. No cargar `MAIL_PERMITIDOS` en producción.
+5. Aplicar la migración 007 en `main`.
+6. Reemplazar el pie legal y los textos «[PENDIENTE]», y aprobar las plantillas desde el panel. Hasta entonces, nada sale.
+7. Probar primero en una vista previa con `MAIL_PERMITIDOS` = un mail propio.
 
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 

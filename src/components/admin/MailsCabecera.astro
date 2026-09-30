@@ -1,0 +1,44 @@
+---
+// Cabecera de la sección Mails: título, pestañas y aviso del modo de envío.
+import { modoMails } from '../../lib/mails';
+
+interface Props {
+  activa: 'recibidos' | 'enviados' | 'plantillas';
+}
+const { activa } = Astro.props;
+const modo = modoMails();
+const pestañas = [
+  { clave: 'recibidos', etiqueta: 'Recibidos', href: '/admin/mails' },
+  { clave: 'enviados', etiqueta: 'Enviados', href: '/admin/mails/enviados' },
+  { clave: 'plantillas', etiqueta: 'Plantillas', href: '/admin/mails/plantillas' },
+];
+const avisos = [
+  !modo.real && 'Modo simulado: falta la clave de Resend, así que ningún mail sale de verdad. Quedan registrados como simulados.',
+  modo.real && modo.permitidos.length > 0 && `Modo de prueba: solo salen de verdad los mails a ${modo.permitidos.join(', ')}.`,
+  modo.pieConPendientes && 'Mientras el pie legal diga [TEXTO LEGAL PENDIENTE], ningún mail sale de verdad: falta validar el texto con el abogado.',
+].filter(Boolean) as string[];
+---
+
+<h1 class="font-display text-2xl font-bold text-ink md:text-3xl">Mails</h1>
+<nav class="mt-5 flex gap-1 border-b border-ink/10" aria-label="Secciones de mails">
+  {
+    pestañas.map((p) => (
+      <a
+        href={p.href}
+        class:list={['-mb-px border-b-2 px-4 py-2.5 font-display text-sm font-semibold', activa === p.clave ? 'border-azul text-ink' : 'border-transparent text-ink/50 hover:text-ink']}
+        aria-current={activa === p.clave ? 'page' : undefined}
+      >
+        {p.etiqueta}
+      </a>
+    ))
+  }
+</nav>
+{
+  avisos.length > 0 && (
+    <ul class="mt-5 space-y-2">
+      {avisos.map((a) => (
+        <li class="rounded-xl border border-[#8f5f16]/30 bg-[#faf0da] px-5 py-3 font-display text-sm text-[#8f5f16]">{a}</li>
+      ))}
+    </ul>
+  )
+}

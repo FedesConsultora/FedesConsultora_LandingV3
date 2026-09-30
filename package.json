@@ -14,7 +14,8 @@
     "test": "vitest run",
     "admin:crear": "node --env-file-if-exists=.env scripts/create-admin.mjs",
     "db:seed-demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
-    "verificar:fase1": "node --env-file-if-exists=.env scripts/verificar-fase1.mjs"
+    "verificar:fase1": "node --env-file-if-exists=.env scripts/verificar-fase1.mjs",
+    "verificar:fase2": "node --env-file-if-exists=.env scripts/verificar-fase2.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -25,6 +26,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.3",
     "resend": "^6.28.1",
+    "standardwebhooks": "^1.1.1",
     "tailwindcss": "^4.3.3"
   },
   "allowScripts": {

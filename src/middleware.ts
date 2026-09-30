@@ -20,6 +20,22 @@ async function csrfFrom(request: Request) {
   return null;
 }
 
+// Chequeo de origen de formularios: las mismas reglas que el de Astro (security.checkOrigin, que
+// está desactivado en astro.config.mjs). Un POST/PUT/PATCH/DELETE con cuerpo de formulario (o sin
+// tipo de contenido) tiene que venir del propio sitio. Única excepción: la baja de los mails, que
+// el proveedor de correo envía sin Origin y que se valida con la firma del link (src/lib/mails.ts).
+const TIPOS_FORMULARIO = ['application/x-www-form-urlencoded', 'multipart/form-data', 'text/plain'];
+const EXENTAS_ORIGEN = [/^\/m\/[^/]+\/baja$/];
+
+function origenProhibido(request: Request, url: URL) {
+  if (SAFE_METHODS.has(request.method)) return false;
+  if (EXENTAS_ORIGEN.some((r) => r.test(url.pathname))) return false;
+  const mismoOrigen = request.headers.get('origin') === url.origin;
+  const tipo = request.headers.get('content-type');
+  if (tipo) return TIPOS_FORMULARIO.some((t) => tipo.toLowerCase().includes(t)) && !mismoOrigen;
+  return !mismoOrigen;
+}
+
 // Landings privadas: no indexables, sin referrer y sin caché, también en la página genérica.
 const PRIVADA_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
@@ -30,7 +46,12 @@ const PRIVADA_HEADERS = {
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
-  if (pathname === '/diagnostico' || pathname.startsWith('/diagnostico/')) {
+  if (origenProhibido(context.request, context.url)) {
+    return new Response(`Cross-site ${context.request.method} form submissions are forbidden`, { status: 403 });
+  }
+
+  // Landings privadas y links de los mails (/m/...): mismas cabeceras de privacidad.
+  if (pathname === '/diagnostico' || pathname.startsWith('/diagnostico/') || pathname.startsWith('/m/')) {
     const res = await next();
     for (const [k, v] of Object.entries(PRIVADA_HEADERS)) res.headers.set(k, v);
     return res;

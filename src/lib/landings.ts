@@ -7,6 +7,7 @@
 import { db } from './db';
 import { problemasParaAprobar, bloqueVacio, type Bloque, type TipoBloque } from './bloques';
 import { descifrarToken, nuevoToken, rutaLanding } from './tokens';
+import { enviarPorDesbloqueo } from './mails';
 
 export class LandingError extends Error {}
 
@@ -21,6 +22,7 @@ export type Etapa = {
   desbloqueada_el: Date | null;
   aprobada: boolean;
   aprobada_por_nombre: string | null;
+  enviar_mail: boolean;
   aprobada_el: Date | null;
   version: number;
 };
@@ -138,12 +140,14 @@ export async function activarLanding(id: number, adminId: number) {
   if (etapas.length === 0) throw new LandingError('Marcá al menos una etapa para desbloquear al entregar.');
   const sinAprobar = etapas.filter((e) => !e.aprobada).map((e) => `«${e.titulo}»`);
   if (sinAprobar.length) throw new LandingError(`Antes de entregar, aprobá: ${sinAprobar.join(', ')}.`);
-  await db().transaction([
+  const [, desbloqueadas] = await db().transaction([
     db()`UPDATE landings SET estado = 'activa', entregada_el = COALESCE(entregada_el, now()), actualizada_el = now() WHERE id = ${id}`,
     db()`UPDATE etapas SET estado = 'desbloqueada', desbloqueada_el = COALESCE(desbloqueada_el, now())
-         WHERE landing_id = ${id} AND modo_desbloqueo = 'al_entregar' AND aprobada`,
+         WHERE landing_id = ${id} AND modo_desbloqueo = 'al_entregar' AND aprobada RETURNING id`,
     auditar(adminId, 'activar', 'landing', id),
   ]);
+  // Mail automático de entrega (si corresponde). No bloquea la entrega: devuelve el resultado.
+  return enviarPorDesbloqueo(id, desbloqueadas.map((e) => e.id as number), true, adminId);
 }
 
 export async function revocarLanding(id: number, adminId: number) {
@@ -246,6 +250,16 @@ export async function desbloquearEtapa(id: number, adminId: number) {
   await db().transaction([
     db()`UPDATE etapas SET estado = 'desbloqueada', desbloqueada_el = now() WHERE id = ${id} AND aprobada`,
     auditar(adminId, 'desbloquear', 'etapa', id, { landing_id: e.landing_id }),
+  ]);
+  // Mail automático de nueva etapa (si la landing ya está entregada y la etapa lo tiene activo).
+  return enviarPorDesbloqueo(e.landing_id, [id], false, adminId);
+}
+
+export async function guardarEnvioMailEtapa(id: number, enviar: boolean, adminId: number) {
+  const e = await etapa(id);
+  await db().transaction([
+    db()`UPDATE etapas SET enviar_mail = ${enviar} WHERE id = ${id}`,
+    auditar(adminId, 'editar', 'etapa', id, { landing_id: e.landing_id, enviar_mail: enviar }),
   ]);
 }
 

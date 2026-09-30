@@ -1,0 +1,37 @@
+---
+// Plantillas de mail. Las automáticas solo se usan si están aprobadas.
+export const prerender = false;
+import AdminLayout from '../../../../components/admin/AdminLayout.astro';
+import MailsCabecera from '../../../../components/admin/MailsCabecera.astro';
+import { listarPlantillas } from '../../../../lib/mails';
+import { tienePendientes } from '../../../../lib/mails-core';
+
+const plantillas = await listarPlantillas();
+---
+
+<AdminLayout title="Plantillas de mail">
+  <MailsCabecera activa="plantillas" />
+  <p class="mt-6 max-w-3xl font-display text-sm text-ink/60">
+    Las plantillas automáticas se envían solas al entregar la landing o al desbloquear una etapa, y solo si están aprobadas.
+    Editar una plantilla le quita la aprobación.
+  </p>
+  <ul class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {
+      plantillas.map((p) => (
+        <li>
+          <a href={`/admin/mails/plantillas/${p.id}`} class="admin-card block h-full hover:ring-2 hover:ring-azul/20">
+            <div class="flex items-start justify-between gap-3">
+              <p class="font-display font-semibold text-ink">{p.nombre}</p>
+              <span class:list={['shrink-0 rounded-full px-2.5 py-1 font-display text-[11px] font-semibold', p.aprobada ? 'bg-azul text-white' : 'bg-ink/[0.06] text-ink/60']}>
+                {p.aprobada ? 'Aprobada' : 'Sin aprobar'}
+              </span>
+            </div>
+            <p class="mt-1 font-display text-xs text-ink/50">{p.uso === 'automatico' ? 'Automática' : 'Para envíos manuales'}</p>
+            <p class="mt-3 truncate font-display text-sm text-ink/70">{p.asunto}</p>
+            {tienePendientes(p.asunto, p.cuerpo) && <p class="mt-2 font-display text-xs text-[#8f5f16]">Tiene textos [PENDIENTE].</p>}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</AdminLayout>

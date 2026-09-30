@@ -1,0 +1,21 @@
+---
+// Historial de mails enviados (y simulados) desde el panel, con su estado de entrega.
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import MailsCabecera from '../../../components/admin/MailsCabecera.astro';
+import TablaEnvios from '../../../components/admin/TablaEnvios.astro';
+import { listarEnvios } from '../../../lib/mails';
+
+const envios = await listarEnvios();
+---
+
+<AdminLayout title="Mails enviados">
+  <MailsCabecera activa="enviados" />
+  {
+    envios.length === 0 ? (
+      <p class="admin-card mt-6 font-display text-sm text-ink/55">Todavía no se envió ningún mail. Se envían desde la ficha de cada lead o automáticamente al desbloquear etapas.</p>
+    ) : (
+      <div class="mt-6"><TablaEnvios envios={envios} conEmpresa /></div>
+    )
+  }
+</AdminLayout>

@@ -13,6 +13,7 @@ export const GET: APIRoute = ({ site }) => {
         'Disallow: /api/',
         'Disallow: /admin',
         'Disallow: /diagnostico/',
+        'Disallow: /m/',
         '',
         '# Buscadores y asistentes con IA: permitidos',
         'User-agent: GPTBot',

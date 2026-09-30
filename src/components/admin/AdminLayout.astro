@@ -3,6 +3,7 @@
 import Base from '../../layouts/Base.astro';
 import { site } from '../../content/site';
 import Icono from './Icono.astro';
+import { contarNoLeidos } from '../../lib/mails';
 
 interface Props {
   title: string;
@@ -11,11 +12,14 @@ const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
   { label: 'Inicio', href: '/admin', icono: 'inicio', activo: path === '/admin' },
-  { label: 'Pipeline', href: '/admin/leads', icono: 'pipeline', activo: path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo' },
+  { label: 'Pipeline', href: '/admin/leads', icono: 'pipeline', activo: path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo' && !path.endsWith('/mail') },
   { label: 'Landings', href: '/admin/landings', icono: 'documento', activo: path.startsWith('/admin/landings') },
+  { label: 'Mails', href: '/admin/mails', icono: 'mail', activo: path.startsWith('/admin/mails') || path.endsWith('/mail') },
   { label: 'Nuevo lead', href: '/admin/leads/nuevo', icono: 'nuevo', activo: path === '/admin/leads/nuevo' },
 ] as const;
 const nombre = Astro.locals.admin?.nombre ?? '';
+// Respuestas sin leer, para el contador del menú (si la base no responde, el menú se muestra igual).
+const noLeidos = Astro.locals.admin ? await contarNoLeidos().catch(() => 0) : 0;
 const iniciales = nombre
   .split(/\s+/)
   .filter(Boolean)
@@ -51,6 +55,11 @@ const iniciales = nombre
               >
                 <Icono nombre={n.icono} />
                 {n.label}
+                {n.href === '/admin/mails' && noLeidos > 0 && (
+                  <span class="ml-auto rounded-full bg-celeste px-2 py-0.5 text-[11px] font-bold text-ink" aria-label={`${noLeidos} sin leer`}>
+                    {noLeidos}
+                  </span>
+                )}
               </a>
             ))
           }

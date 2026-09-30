@@ -1,0 +1,39 @@
+---
+// Baja desde un mail: "No quiero recibir más comunicaciones".
+// - Desde el navegador: se pide confirmar (un GET nunca da de baja, porque algunos programas
+//   de correo abren los links solos para revisarlos).
+// - Baja en un clic (RFC 8058): el programa de correo envía un POST sin Origin; el middleware lo
+//   admite solo en esta ruta, porque el link está firmado.
+export const prerender = false;
+import Privada from '../../../layouts/Privada.astro';
+import { mails as M } from '../../../content/mails';
+import { bajaPorEnvio } from '../../../lib/mails';
+import { envioDesdeToken } from '../../../lib/mails-core';
+
+const id = envioDesdeToken(Astro.params.token);
+let hecha = false;
+if (id && Astro.request.method === 'POST') {
+  hecha = await bajaPorEnvio(id);
+  // Pedido del programa de correo (sin navegador): alcanza con un 200.
+  const cuerpo = await Astro.request.text();
+  if (cuerpo.includes('List-Unsubscribe=One-Click')) return new Response('OK', { status: 200 });
+}
+if (!id) Astro.response.status = 404;
+---
+
+<Privada titulo={M.baja.titulo}>
+  <div class="max-w-2xl py-14">
+    {
+      !id ? (
+        <p class="text-lg text-ink/70">Este link no está disponible.</p>
+      ) : hecha ? (
+        <p class="text-lg text-ink/80" role="status">{M.baja.confirmacion}</p>
+      ) : (
+        <form method="post">
+          <p class="text-lg text-ink/80">{M.baja.pregunta}</p>
+          <button class="btn btn-primary mt-6">{M.baja.boton}</button>
+        </form>
+      )
+    }
+  </div>
+</Privada>

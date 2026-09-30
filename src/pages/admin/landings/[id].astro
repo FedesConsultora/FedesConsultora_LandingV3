@@ -5,6 +5,7 @@ import BloqueEditor from '../../../components/admin/BloqueEditor.astro';
 import { TIPOS_BLOQUE, bloqueDesdeForm, problemasParaAprobar, type TipoBloque } from '../../../lib/bloques';
 import * as L from '../../../lib/landings';
 import { resumenVisitas } from '../../../lib/portal';
+import { avisoDeMail, tomarAviso } from '../../../lib/flash';
 
 const id = Number(Astro.params.id);
 const adminId = Astro.locals.admin!.id;
@@ -47,7 +48,7 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
         break;
       }
       case 'activar':
-        await L.activarLanding(id, adminId);
+        avisoDeMail(Astro.cookies, await L.activarLanding(id, adminId));
         ok = 'activada';
         break;
       case 'revocar':
@@ -64,6 +65,9 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
       case 'titulo_etapa':
         await L.guardarTituloEtapa(etapaId, version, String(form.get('titulo') ?? ''), adminId);
         break;
+      case 'mail_etapa':
+        await L.guardarEnvioMailEtapa(etapaId, form.getAll('enviar_mail').includes('1'), adminId);
+        break;
       case 'modo_etapa':
         await L.guardarModoEtapa(etapaId, String(form.get('modo') ?? ''), adminId);
         break;
@@ -75,7 +79,7 @@ if (Astro.request.method === 'POST' && Number.isInteger(id)) {
         await L.quitarAprobacion(etapaId, adminId);
         break;
       case 'desbloquear':
-        await L.desbloquearEtapa(etapaId, adminId);
+        avisoDeMail(Astro.cookies, await L.desbloquearEtapa(etapaId, adminId));
         ok = 'desbloqueada';
         break;
       case 'bloquear':
@@ -127,6 +131,7 @@ const datos = Number.isInteger(id) ? await L.obtenerLanding(id) : null;
 if (!datos) Astro.response.status = 404;
 
 const aviso = MENSAJES[Astro.url.searchParams.get('ok') ?? ''] ?? null;
+const avisoMail = tomarAviso(Astro.cookies);
 const estado = datos ? L.estadoVisible(datos.landing) : null;
 const link = datos && datos.landing.estado !== 'revocada' ? L.linkDeLanding(datos.landing, Astro.url.origin) : null;
 const visitas = datos ? await resumenVisitas(datos.landing.id) : null;
@@ -165,7 +170,15 @@ const venceInput = datos?.landing.vence_el
           )}
         </p>
 
-        {aviso && <p data-aviso class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}
+        {avisoMail && (
+          <p
+            {...(avisoMail.error ? { role: 'alert' } : { 'data-aviso': '' })}
+            class:list={['mt-6 rounded-xl px-5 py-3 text-sm', avisoMail.error ? 'border border-[#8f5f16]/40 bg-[#faf0da] text-[#8f5f16]' : 'border border-azul/30 bg-azul/[0.06] text-azul']}
+          >
+            {avisoMail.texto}
+          </p>
+        )}
+        {aviso && !avisoMail && <p data-aviso class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}
         {error && <p class="mt-6 rounded-xl border border-[#a8412b]/40 bg-[#fbeae3] px-5 py-3 text-sm text-[#a8412b]" role="alert">{error}</p>}
 
         <!-- Landing: link, entrega y datos -->
@@ -278,6 +291,16 @@ const venceInput = datos?.landing.vence_el
                       <option value="al_entregar" selected={e.modo_desbloqueo === 'al_entregar'}>Al entregar</option>
                       <option value="manual" selected={e.modo_desbloqueo === 'manual'}>Manual</option>
                     </select>
+                    <noscript><button class="btn btn-outline-dark !px-3 !py-1.5 !text-xs">Guardar</button></noscript>
+                  </form>
+                  <form method="post" class="flex items-center gap-2 md:col-span-2 md:justify-end">
+                    {Object.entries(base).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+                    <input type="hidden" name="accion" value="mail_etapa" />
+                    <input type="hidden" name="enviar_mail" value="0" />
+                    <label class="flex cursor-pointer items-center gap-2 font-display text-xs text-ink/70">
+                      <input type="checkbox" name="enviar_mail" value="1" checked={e.enviar_mail} class="accent-azul" onchange="this.form.requestSubmit()" />
+                      Enviar mail al lead cuando se desbloquee
+                    </label>
                     <noscript><button class="btn btn-outline-dark !px-3 !py-1.5 !text-xs">Guardar</button></noscript>
                   </form>
                 </div>

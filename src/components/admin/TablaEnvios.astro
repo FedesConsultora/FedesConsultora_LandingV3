@@ -1,0 +1,67 @@
+---
+// Tabla de mails enviados: se usa en Mails > Enviados y en la ficha del lead.
+import type { EnvioListado } from '../../lib/mails';
+
+interface Props {
+  envios: EnvioListado[];
+  conEmpresa?: boolean;
+}
+const { envios, conEmpresa = false } = Astro.props;
+const TZ = 'America/Argentina/Buenos_Aires';
+const fecha = (d: Date) => new Date(d).toLocaleString('es-AR', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+// Texto más oscuro de la misma familia que el fondo.
+const ESTADOS: Record<string, [string, string]> = {
+  pendiente: ['Pendiente', 'bg-ink/[0.06] text-ink/70'],
+  simulado: ['Simulado', 'bg-[#faf0da] text-[#8f5f16]'],
+  enviado: ['Enviado', 'bg-[#DCE8F1] text-[#1F3A4B]'],
+  entregado: ['Entregado', 'bg-azul text-white'],
+  rebotado: ['Rebotó', 'bg-[#fbeae3] text-[#8a3321]'],
+  spam: ['Marcado como spam', 'bg-[#fbeae3] text-[#8a3321]'],
+  fallido: ['Falló', 'bg-[#fbeae3] text-[#8a3321]'],
+};
+const TIPOS: Record<string, string> = { manual: 'Manual', automatico: 'Automático', respuesta: 'Respuesta' };
+---
+
+<div class="overflow-x-auto rounded-2xl bg-white">
+  <table class="w-full min-w-[760px] border-collapse text-sm">
+    <thead>
+      <tr class="border-b border-ink/10 text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+        <th class="px-5 py-3">Fecha</th>
+        {conEmpresa && <th class="px-5 py-3">Lead</th>}
+        <th class="px-5 py-3">Asunto</th>
+        <th class="px-5 py-3">Tipo</th>
+        <th class="px-5 py-3">Estado</th>
+        <th class="px-5 py-3">Apertura</th>
+        <th class="px-5 py-3">Clic</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        envios.map((e) => {
+          const [etq, tono] = ESTADOS[e.estado] ?? [e.estado, 'bg-ink/[0.06] text-ink/70'];
+          return (
+            <tr class="border-b border-ink/5 align-top last:border-0">
+              <td class="whitespace-nowrap px-5 py-3.5 font-display text-ink/60">{fecha(e.creado_el)}</td>
+              {conEmpresa && (
+                <td class="px-5 py-3.5 font-display">
+                  <a href={`/admin/leads/${e.lead_id}`} class="font-semibold text-azul hover:underline">{e.empresa}</a>
+                </td>
+              )}
+              <td class="px-5 py-3.5 font-display text-ink">
+                {e.asunto}
+                <span class="block text-xs text-ink/45">{e.para}{e.admin ? ` · ${e.admin}` : ''}</span>
+              </td>
+              <td class="px-5 py-3.5 font-display text-ink/60">{TIPOS[e.tipo] ?? e.tipo}</td>
+              <td class="px-5 py-3.5">
+                <span class:list={['rounded-full px-2.5 py-1 font-display text-[11px] font-semibold', tono]} title={e.error ?? undefined}>{etq}</span>
+                {e.error && <span class="mt-1 block max-w-[240px] font-display text-xs text-ink/50">{e.error}</span>}
+              </td>
+              <td class="whitespace-nowrap px-5 py-3.5 font-display text-ink/60">{e.abierto_el ? fecha(e.abierto_el) : '—'}</td>
+              <td class="whitespace-nowrap px-5 py-3.5 font-display text-ink/60">{e.clic_el ? fecha(e.clic_el) : '—'}</td>
+            </tr>
+          );
+        })
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,52 @@
+---
+// Un mail recibido. Abrirlo lo marca como leído. Se muestra solo el texto (nunca el HTML recibido).
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import Icono from '../../../components/admin/Icono.astro';
+import { obtenerRecibido } from '../../../lib/mails';
+
+const TZ = 'America/Argentina/Buenos_Aires';
+const id = Number(Astro.params.id);
+const datos = Number.isInteger(id) ? await obtenerRecibido(id, Astro.locals.admin!.id) : null;
+if (!datos) Astro.response.status = 404;
+const m = datos?.mensaje;
+const adjuntos = (m?.adjuntos ?? []) as { nombre: string | null; tamano: number | null }[];
+const kb = (n: number | null) => (n ? `${Math.max(1, Math.round(n / 1024))} KB` : '');
+---
+
+<AdminLayout title={m ? m.asunto : 'Mail no encontrado'}>
+  <a href="/admin/mails" class="font-display text-sm text-ink/50 hover:text-azul">← Recibidos</a>
+  {
+    !m ? (
+      <h1 class="mt-3 font-display text-2xl font-bold">Este mail no existe.</h1>
+    ) : (
+      <article class="admin-card mt-4">
+        <h1 class="font-display text-xl font-bold text-ink md:text-2xl">{m.asunto}</h1>
+        <p class="mt-2 font-display text-sm text-ink/60">
+          De {m.de} · {new Date(m.recibido_el).toLocaleString('es-AR', { timeZone: TZ, dateStyle: 'long', timeStyle: 'short' })}
+        </p>
+        {datos!.lead ? (
+          <p class="mt-1 font-display text-sm">
+            Lead: <a href={`/admin/leads/${datos!.lead.id}`} class="text-azul hover:underline">{datos!.lead.empresa}</a> ({datos!.lead.nombre})
+          </p>
+        ) : (
+          <p class="mt-1 font-display text-sm text-[#8f5f16]">No se pudo asociar a ningún lead (el remitente no coincide con un lead cargado).</p>
+        )}
+        <div class="mt-6 whitespace-pre-line border-t border-ink/10 pt-6 leading-relaxed text-ink/85">{m.cuerpo || 'El mail no tiene texto (o todavía no se pudo obtener de Resend).'}</div>
+        {adjuntos.length > 0 && (
+          <div class="mt-6 border-t border-ink/10 pt-4">
+            <p class="admin-label">Adjuntos (quedan guardados en Resend)</p>
+            <ul class="mt-2 font-display text-sm text-ink/70">
+              {adjuntos.map((a) => <li>{a.nombre ?? 'Sin nombre'} {kb(a.tamano)}</li>)}
+            </ul>
+          </div>
+        )}
+        {datos!.lead && (
+          <a href={`/admin/leads/${datos!.lead.id}/mail?responde=${m.id}`} class="btn btn-primary mt-6 !py-2.5">
+            <Icono nombre="responder" /> Responder
+          </a>
+        )}
+      </article>
+    )
+  }
+</AdminLayout>
