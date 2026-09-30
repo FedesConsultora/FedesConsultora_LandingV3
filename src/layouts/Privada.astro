@@ -28,7 +28,7 @@ const { titulo } = Astro.props;
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     {Astro.locals.admin && <meta name="csrf-token" content={Astro.locals.admin.csrf} />}
   </head>
-  <body class="bg-white font-body text-ink antialiased">
+  <body class="flex min-h-[100svh] flex-col bg-white font-body text-ink antialiased">
     <slot name="antes" />
     <header class="bg-ink text-white">
       <div class="container-fedes pb-14 pt-8 md:pb-20">
@@ -37,7 +37,7 @@ const { titulo } = Astro.props;
       </div>
     </header>
 
-    <main class="container-fedes pb-16">
+    <main class="container-fedes flex-1 pb-16">
       <slot />
     </main>
 

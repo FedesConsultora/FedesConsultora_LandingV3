@@ -2,6 +2,7 @@
 // Una etapa tal como la ve el lead. Si está bloqueada se muestra solo su título y estado:
 // el contenido no se recibe como prop, así nunca llega al HTML.
 import Bloque from './Bloque.astro';
+import { diagnostico } from '../../content/diagnostico';
 import type { Bloque as TipoBloque } from '../../lib/bloques';
 
 interface Props {
@@ -28,7 +29,7 @@ const n = String(numero).padStart(2, '0');
         ))}
       </div>
     ) : (
-      <p class="mt-4 font-display text-sm uppercase tracking-[0.2em] text-ink/40">Próximamente</p>
+      <p class="mt-4 font-display text-sm uppercase tracking-[0.2em] text-ink/40">{diagnostico.proximamente}</p>
     )
   }
 </section>

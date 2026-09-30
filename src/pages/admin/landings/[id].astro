@@ -4,6 +4,7 @@ import AdminLayout from '../../../components/admin/AdminLayout.astro';
 import BloqueEditor from '../../../components/admin/BloqueEditor.astro';
 import { TIPOS_BLOQUE, bloqueDesdeForm, problemasParaAprobar, type TipoBloque } from '../../../lib/bloques';
 import * as L from '../../../lib/landings';
+import { resumenVisitas } from '../../../lib/portal';
 
 const id = Number(Astro.params.id);
 const adminId = Astro.locals.admin!.id;
@@ -128,6 +129,7 @@ if (!datos) Astro.response.status = 404;
 const aviso = MENSAJES[Astro.url.searchParams.get('ok') ?? ''] ?? null;
 const estado = datos ? L.estadoVisible(datos.landing) : null;
 const link = datos && datos.landing.estado !== 'revocada' ? L.linkDeLanding(datos.landing, Astro.url.origin) : null;
+const visitas = datos ? await resumenVisitas(datos.landing.id) : null;
 
 const fechaHora = (d: Date | null) =>
   d ? new Date(d).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short', timeStyle: 'short' }) : '';
@@ -155,6 +157,12 @@ const venceInput = datos?.landing.vence_el
         <p class="mt-1 text-sm text-ink/60">
           Para {datos.landing.nombre}
           {datos.landing.entregada_el && ` · entregada el ${fechaHora(datos.landing.entregada_el)}`}
+          {visitas && datos.landing.entregada_el && (
+            <>
+              {' · '}
+              {visitas.visitas === 0 ? 'sin visitas todavía' : `${visitas.visitas} ${visitas.visitas === 1 ? 'visita' : 'visitas'}, la última el ${fechaHora(visitas.ultima)}`}
+            </>
+          )}
         </p>
 
         {aviso && <p class="mt-6 rounded-xl border border-azul/30 bg-azul/[0.06] px-5 py-3 text-sm text-azul">{aviso}</p>}

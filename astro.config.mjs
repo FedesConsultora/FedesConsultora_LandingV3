@@ -14,8 +14,8 @@ export default defineConfig({
   adapter: vercel(),
   integrations: [
     sitemap({
-      // Nosotros está en construcción, y el panel de administración, fuera del sitemap.
-      filter: (page) => !page.includes('/nosotros') && !page.includes('/admin'),
+      // Nosotros está en construcción; el panel y las landings privadas, fuera del sitemap.
+      filter: (page) => !page.includes('/nosotros') && !page.includes('/admin') && !page.includes('/diagnostico'),
     }),
   ],
   redirects: {

@@ -20,8 +20,22 @@ async function csrfFrom(request: Request) {
   return null;
 }
 
+// Landings privadas: no indexables, sin referrer y sin caché, también en la página genérica.
+const PRIVADA_HEADERS = {
+  'X-Robots-Tag': 'noindex, nofollow, noarchive',
+  'Referrer-Policy': 'no-referrer',
+  'Cache-Control': 'private, no-store',
+};
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
+
+  if (pathname === '/diagnostico' || pathname.startsWith('/diagnostico/')) {
+    const res = await next();
+    for (const [k, v] of Object.entries(PRIVADA_HEADERS)) res.headers.set(k, v);
+    return res;
+  }
+
   const isAdminArea = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
   if (!isAdminArea) return next();
 

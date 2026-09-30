@@ -226,6 +226,17 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Quedan para la fase 3:** editar la plantilla de etapas desde el panel, desbloqueo programado y vista previa integrada en el editor (hoy se abre en otra pestaña).
 - **Landing de ejemplo en `desarrollo`:** «Diagnóstico de Empresa Ficticia S.A.», con contenido ficticio, para revisar el diseño.
 
+## Registro de la construcción (portal, fase 1, paso 5: landing del lead, 29/09)
+
+- **`/diagnostico/[token]`:** muestra el título de la landing y sus etapas. Las desbloqueadas, con su contenido; las bloqueadas, solo con título y «Próximamente». El contenido de una etapa bloqueada no sale de la base, así que no llega al HTML (verificado con textos testigo).
+- **Link inexistente, vencido, revocado o de una landing en borrador:** la misma página genérica, con el mismo código (404), sin revelar el motivo.
+- **Límite:** 20 links inválidos cada 10 minutos por IP; después, la IP recibe un 429 aun con un link válido. La IP se guarda como HMAC.
+- **No indexable:** `X-Robots-Tag`, metaetiqueta `robots`, `Referrer-Policy: no-referrer` y `Cache-Control: private, no-store` (en el middleware y en `vercel.json`); fuera de `robots.txt` y del sitemap; sin Google Analytics, canonical ni Open Graph; título de pestaña genérico.
+- **Visitas:** una por acceso; las recargas del mismo navegador dentro de 30 minutos cuentan una vez. No cuentan los administradores con sesión ni los bots de vista previa de links (WhatsApp, Slack, LinkedIn, Outlook, etc.). El editor de la landing muestra cuántas visitas hubo y la última.
+- **Baja:** el pie tiene «No quiero recibir más comunicaciones», que registra la baja del lead (queda en su ficha) y muestra una confirmación.
+- **Textos propios, a validar:** «Este link no está disponible.» y «Si necesitás acceder a tu diagnóstico, escribinos a info@fedesconsultora.com.» (página genérica) y la confirmación de la baja, «Registramos tu pedido: no vas a recibir más comunicaciones de Fedes Consultora.» (validar con el abogado). Están en `src/content/diagnostico.ts`.
+- **Los clics en agendar y WhatsApp** todavía no se registran: quedan para el monitoreo (fase 3).
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

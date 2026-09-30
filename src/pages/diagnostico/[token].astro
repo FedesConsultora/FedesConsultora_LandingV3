@@ -1,0 +1,82 @@
+---
+// Landing privada del lead. El link es la credencial (sin login). docs/09-portal-leads.md, sección 5.
+// Encabezados de privacidad (noindex, no-referrer, no-store): src/middleware.ts.
+export const prerender = false;
+import Privada from '../../layouts/Privada.astro';
+import EtapaVista from '../../components/diagnostico/EtapaVista.astro';
+import { diagnostico } from '../../content/diagnostico';
+import { contactChannels, legalLinks } from '../../content/site';
+import { SESSION_COOKIE, getSession } from '../../lib/auth';
+import { clientIp, registrarFallo, superoLimite } from '../../lib/limite';
+import { buscarLanding, esBot, registrarBaja, registrarVisita } from '../../lib/portal';
+
+const ip = clientIp(Astro);
+const userAgent = Astro.request.headers.get('user-agent');
+
+let landing = null;
+if (await superoLimite('token', ip)) {
+  Astro.response.status = 429;
+} else {
+  landing = await buscarLanding(Astro.params.token);
+  if (!landing) {
+    // Inexistente, vencida o revocada: misma respuesta. El intento cuenta para el límite por IP.
+    await registrarFallo('token', ip);
+    Astro.response.status = 404;
+  }
+}
+
+if (landing && Astro.request.method === 'POST') {
+  // Formulario de baja. El chequeo de origen de Astro rechaza envíos desde otros sitios.
+  // Después se redirige a la misma página, para que recargar no reenvíe el formulario.
+  const form = await Astro.request.formData();
+  if (form.get('accion') === 'baja') await registrarBaja(landing);
+  return Astro.redirect(Astro.url.pathname, 303);
+}
+
+// Visita: no cuentan los administradores con sesión (por ejemplo, al revisar el link desde el panel)
+// ni los bots que arman vistas previas del link.
+if (landing && Astro.request.method === 'GET' && !esBot(userAgent)) {
+  const admin = await getSession(Astro.cookies.get(SESSION_COOKIE)?.value);
+  if (!admin) await registrarVisita(landing.id, ip, userAgent!);
+}
+---
+
+{
+  landing ? (
+    <Privada titulo={landing.titulo}>
+      {landing.etapas.map((e) => (
+        <EtapaVista numero={e.numero} titulo={e.titulo} contenido={e.contenido} />
+      ))}
+
+      <Fragment slot="pie">
+        <ul class="flex flex-wrap gap-x-6 gap-y-2">
+          <li>
+            <a href={contactChannels.whatsapp.href} target="_blank" rel="noopener noreferrer" class="hover:text-azul">
+              WhatsApp {contactChannels.whatsapp.label}
+            </a>
+          </li>
+          {legalLinks.map((l) => (
+            <li>
+              <a href={l.href} class="hover:text-azul">{l.label}</a>
+            </li>
+          ))}
+          <li>
+            {landing.baja ? (
+              <span>{diagnostico.baja.confirmacion}</span>
+            ) : (
+              <form method="post">
+                <button name="accion" value="baja" class="underline underline-offset-4 hover:text-azul">
+                  {diagnostico.baja.boton}
+                </button>
+              </form>
+            )}
+          </li>
+        </ul>
+      </Fragment>
+    </Privada>
+  ) : (
+    <Privada titulo={diagnostico.noDisponible.titulo}>
+      <p class="max-w-2xl py-14 text-lg leading-relaxed text-ink/70">{diagnostico.noDisponible.texto}</p>
+    </Privada>
+  )
+}
