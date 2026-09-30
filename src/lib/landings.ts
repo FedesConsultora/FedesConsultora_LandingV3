@@ -72,26 +72,39 @@ export async function listarLandingsDeLead(leadId: number) {
   })[];
 }
 
-// Crea la landing con la plantilla de etapas, en una sola sentencia.
+// Crea la landing con la plantilla de etapas. Si el lead ya tiene una landing en borrador,
+// devuelve esa: nunca hay dos borradores del mismo lead (por ejemplo, por un doble clic en
+// "Crear landing"). Un bloqueo por lead hace que dos pedidos simultáneos se ordenen: el segundo
+// espera al primero y encuentra el borrador ya creado.
+const BLOQUEO_CREAR_LANDING = 1001;
+
 export async function crearLanding(leadId: number, adminId: number) {
   const { hash, cifrado } = nuevoToken();
-  const rows = await db()`
-    WITH lead AS (SELECT id, empresa FROM leads WHERE id = ${leadId}),
-    nueva AS (
-      INSERT INTO landings (lead_id, titulo, token_hash, token_cifrado)
-      SELECT id, 'Diagnóstico de ' || empresa, ${hash}, ${cifrado} FROM lead
-      RETURNING id
-    ),
-    etapas_nuevas AS (
-      INSERT INTO etapas (landing_id, orden, titulo, modo_desbloqueo, contenido)
-      SELECT nueva.id, p.orden, p.titulo, p.modo_desbloqueo, p.contenido FROM nueva, plantilla_etapas p
-    )
-    INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
-    SELECT ${adminId}, 'crear', 'landing', id, jsonb_build_object('lead_id', ${leadId}::int) FROM nueva
-    RETURNING entidad_id AS id
-  `;
-  if (!rows[0]) throw new LandingError('El lead no existe.');
-  return rows[0].id as number;
+  const [, creada] = await db().transaction([
+    db()`SELECT pg_advisory_xact_lock(${BLOQUEO_CREAR_LANDING}, ${leadId})`,
+    db()`
+      WITH lead AS (
+        SELECT id, empresa FROM leads
+        WHERE id = ${leadId} AND NOT EXISTS (SELECT 1 FROM landings WHERE lead_id = ${leadId} AND estado = 'borrador')
+      ),
+      nueva AS (
+        INSERT INTO landings (lead_id, titulo, token_hash, token_cifrado)
+        SELECT id, 'Diagnóstico de ' || empresa, ${hash}, ${cifrado} FROM lead
+        RETURNING id
+      ),
+      etapas_nuevas AS (
+        INSERT INTO etapas (landing_id, orden, titulo, modo_desbloqueo, contenido)
+        SELECT nueva.id, p.orden, p.titulo, p.modo_desbloqueo, p.contenido FROM nueva, plantilla_etapas p
+      )
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'crear', 'landing', id, jsonb_build_object('lead_id', ${leadId}::int) FROM nueva
+      RETURNING entidad_id AS id
+    `,
+  ]);
+  if (creada[0]) return creada[0].id as number;
+  const [borrador] = await db()`SELECT id FROM landings WHERE lead_id = ${leadId} AND estado = 'borrador' ORDER BY creada_el LIMIT 1`;
+  if (!borrador) throw new LandingError('El lead no existe.');
+  return borrador.id as number;
 }
 
 export async function obtenerLanding(id: number) {

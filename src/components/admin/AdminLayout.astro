@@ -9,7 +9,12 @@ interface Props {
 const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
-  { label: 'Leads', href: '/admin', activo: path === '/admin' || (path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo') },
+  { label: 'Inicio', href: '/admin', activo: path === '/admin' },
+  {
+    label: 'Leads',
+    href: '/admin/leads',
+    activo: (path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo') || path.startsWith('/admin/landings'),
+  },
   { label: 'Nuevo lead', href: '/admin/leads/nuevo', activo: path === '/admin/leads/nuevo' },
 ];
 ---
@@ -50,6 +55,35 @@ const nav = [
   </div>
 
   <script>
+    // Evita envíos dobles (por ejemplo, un doble clic en "Crear landing"): mientras un formulario
+    // se envía, se ignoran nuevos envíos y sus botones quedan deshabilitados.
+    document.addEventListener('submit', (ev) => {
+      const form = ev.target as HTMLFormElement;
+      if (ev.defaultPrevented) return;
+      if (form.dataset.enviando) {
+        ev.preventDefault();
+        return;
+      }
+      form.dataset.enviando = '1';
+      // Se deshabilitan después de que el navegador tomó el valor del botón apretado.
+      setTimeout(() =>
+        form.querySelectorAll('button:not([disabled])').forEach((b) => {
+          (b as HTMLButtonElement).disabled = true;
+          (b as HTMLButtonElement).dataset.reactivar = '1';
+        }),
+      );
+    });
+    // Al volver con el botón "atrás", la página puede venir de la caché con los botones deshabilitados.
+    window.addEventListener('pageshow', () => {
+      document.querySelectorAll<HTMLFormElement>('form[data-enviando]').forEach((f) => {
+        delete f.dataset.enviando;
+        f.querySelectorAll<HTMLButtonElement>('button[data-reactivar]').forEach((b) => {
+          b.disabled = false;
+          delete b.dataset.reactivar;
+        });
+      });
+    });
+
     document.getElementById('logout')?.addEventListener('click', async () => {
       const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
       await fetch('/api/admin/logout', { method: 'POST', headers: { 'x-csrf-token': csrf } });
