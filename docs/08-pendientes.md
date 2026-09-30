@@ -281,6 +281,14 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 6. Reemplazar el pie legal y los textos «[PENDIENTE]», y aprobar las plantillas desde el panel. Hasta entonces, nada sale.
 7. Probar primero en una vista previa con `MAIL_PERMITIDOS` = un mail propio.
 
+## Publicación en producción (30/09)
+
+- **Publicado** en https://fedes-web.vercel.app (sin dominio propio todavía; el sitio sigue con `noindex`).
+- **Migraciones 001 a 007 aplicadas en `main`** (las corrió el equipo). Los 3 leads de prueba con el mismo email quedaron fusionados en uno, con sus 3 envíos del formulario.
+- **Variables cargadas en Vercel (Production):** `LANDING_TOKEN_KEY` (nueva, distinta de la de desarrollo) y `MAIL_LINKS_URL=https://fedes-web.vercel.app`. `SESSION_SECRET` ya existía.
+- **Mails en modo simulado** en producción (no hay clave de Resend): ver «Para activar los mails reales».
+- **Falta:** crear los usuarios del panel en producción (`npm run admin:crear` apuntando a `main`); después, borrar de Vercel `ADMIN_USER` y `ADMIN_PASSWORD_HASH`, que ya no se usan. Las variables de Preview siguen apuntando a `main` (la misma base que producción).
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.
