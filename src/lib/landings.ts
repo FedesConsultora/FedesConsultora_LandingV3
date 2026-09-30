@@ -315,3 +315,42 @@ export async function resumenLandingDeLead(leadId: number) {
   `;
   return (r ?? null) as import('./proceso').ResumenLanding | null;
 }
+
+export type LandingListado = {
+  id: number;
+  titulo: string;
+  estado: 'borrador' | 'activa' | 'revocada';
+  vencida: boolean;
+  entregada_el: Date | null;
+  vence_el: Date | null;
+  creada_el: Date;
+  lead_id: number;
+  empresa: string;
+  nombre: string;
+  etapas: number;
+  aprobadas: number;
+  desbloqueadas: number;
+  visitas: number;
+  ultima_visita: Date | null;
+};
+
+// Todas las landings, con su avance y sus visitas, para el listado del panel.
+// `estado` acepta también "vencida" (activa con la fecha de vencimiento pasada).
+export async function listarLandings(f: { estado?: string; q?: string } = {}) {
+  const q = f.q?.trim() ? `%${f.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+  const rows = await db()`
+    SELECT l.id, l.titulo, l.estado, (l.vence_el IS NOT NULL AND l.vence_el < now()) AS vencida,
+           l.entregada_el, l.vence_el, l.creada_el, le.id AS lead_id, le.empresa, le.nombre,
+           (SELECT count(*)::int FROM etapas e WHERE e.landing_id = l.id) AS etapas,
+           (SELECT count(*)::int FROM etapas e WHERE e.landing_id = l.id AND e.aprobada) AS aprobadas,
+           (SELECT count(*)::int FROM etapas e WHERE e.landing_id = l.id AND e.estado = 'desbloqueada') AS desbloqueadas,
+           (SELECT count(*)::int FROM eventos v WHERE v.landing_id = l.id AND v.tipo = 'visita') AS visitas,
+           (SELECT max(v.creado_el) FROM eventos v WHERE v.landing_id = l.id AND v.tipo = 'visita') AS ultima_visita
+    FROM landings l JOIN leads le ON le.id = l.lead_id
+    WHERE (${q}::text IS NULL OR unaccent(le.empresa) ILIKE unaccent(${q}) OR unaccent(l.titulo) ILIKE unaccent(${q}))
+    ORDER BY COALESCE(l.entregada_el, l.creada_el) DESC
+  `;
+  const todas = rows as LandingListado[];
+  const visible = (l: LandingListado) => (l.estado === 'activa' && l.vencida ? 'vencida' : l.estado);
+  return { todas, filtradas: f.estado ? todas.filter((l) => visible(l) === f.estado) : todas, visible };
+}

@@ -1,0 +1,133 @@
+---
+// Listado de todas las landings: estado, avance de aprobación, etapas visibles y visitas.
+export const prerender = false;
+import AdminLayout from '../../../components/admin/AdminLayout.astro';
+import Icono from '../../../components/admin/Icono.astro';
+import Tooltip from '../../../components/admin/graficos/Tooltip.astro';
+import { ETIQUETA_ESTADO_LANDING, listarLandings } from '../../../lib/landings';
+
+const TZ = 'America/Argentina/Buenos_Aires';
+const ESTADOS = ['borrador', 'activa', 'vencida', 'revocada'] as const;
+const params = Astro.url.searchParams;
+const estado = ESTADOS.find((e) => e === params.get('estado'));
+const q = params.get('q')?.trim().slice(0, 100) ?? '';
+
+const { todas, filtradas, visible } = await listarLandings({ estado, q });
+const cuenta = (e: string) => todas.filter((l) => visible(l) === e).length;
+const url = (e?: string) => {
+  const u = new URLSearchParams({ ...(e && { estado: e }), ...(q && { q }) });
+  return `/admin/landings${u.size ? `?${u}` : ''}`;
+};
+
+const fecha = (d: Date) => new Date(d).toLocaleDateString('es-AR', { timeZone: TZ, day: 'numeric', month: 'short' });
+const haceDias = (d: Date) => {
+  const dias = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+  return dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
+};
+// Estado: texto más oscuro de la misma familia que el fondo.
+const tonos: Record<string, string> = {
+  borrador: 'bg-ink/[0.06] text-ink/70',
+  activa: 'bg-azul text-white',
+  vencida: 'bg-[#fbeae3] text-[#8a3321]',
+  revocada: 'bg-ink text-white',
+};
+---
+
+<AdminLayout title="Landings">
+  <Tooltip />
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink md:text-3xl">Landings</h1>
+      <p class="mt-1 font-display text-sm text-ink/55">Una por lead, después de la sesión de diagnóstico. Se crean desde la ficha del lead.</p>
+    </div>
+    <form method="get" role="search" class="flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2">
+      {estado && <input type="hidden" name="estado" value={estado} />}
+      <Icono nombre="buscar" class="h-4 w-4 text-ink/40" />
+      <label for="buscar-landing" class="sr-only">Buscar por empresa o título</label>
+      <input id="buscar-landing" name="q" value={q} type="search" placeholder="Buscar por empresa" class="w-44 bg-transparent font-display text-sm outline-none placeholder:text-ink/40" />
+    </form>
+  </div>
+
+  <nav class="mt-6 flex flex-wrap gap-2" aria-label="Filtrar por estado">
+    <a href={url()} class:list={['admin-tag !px-3.5 !py-1.5', !estado && '!bg-ink !text-white']}>Todas · {todas.length}</a>
+    {
+      ESTADOS.map((e) => (
+        <a href={url(e)} class:list={['admin-tag !px-3.5 !py-1.5', estado === e && '!bg-ink !text-white']}>
+          {ETIQUETA_ESTADO_LANDING[e]} · {cuenta(e)}
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    filtradas.length === 0 ? (
+      <p class="admin-card mt-6 font-display text-sm text-ink/55">
+        {todas.length === 0 ? 'Todavía no hay landings. Se crean desde la ficha de un lead, después de su sesión de diagnóstico.' : 'No hay landings con estos filtros.'}
+      </p>
+    ) : (
+      <div class="mt-6 overflow-x-auto rounded-2xl bg-white">
+        <table class="w-full min-w-[860px] border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-ink/10 text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+              <th class="px-5 py-3">Empresa</th>
+              <th class="px-5 py-3">Estado</th>
+              <th class="px-5 py-3">Etapas aprobadas</th>
+              <th class="px-5 py-3">Visibles</th>
+              <th class="px-5 py-3">Entregada</th>
+              <th class="px-5 py-3">Visitas</th>
+              <th class="px-5 py-3"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtradas.map((l) => {
+              const e = visible(l);
+              return (
+                <tr class="border-b border-ink/5 align-middle last:border-0 hover:bg-ink/[0.015]">
+                  <td class="px-5 py-4">
+                    <a href={`/admin/landings/${l.id}`} class="font-display font-semibold text-azul hover:underline">{l.empresa}</a>
+                    <a href={`/admin/leads/${l.lead_id}`} class="block font-display text-xs text-ink/50 hover:text-azul">{l.nombre}</a>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class:list={['rounded-full px-2.5 py-1 font-display text-[11px] font-semibold', tonos[e]]}>{ETIQUETA_ESTADO_LANDING[e]}</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-2" tabindex="0" data-tip={`${l.aprobadas} de ${l.etapas} etapas aprobadas`}>
+                      <span class="h-1.5 w-24 overflow-hidden rounded-full bg-ink/10">
+                        <span class="block h-full rounded-full bg-azul" style={`width:${l.etapas ? (l.aprobadas / l.etapas) * 100 : 0}%`} />
+                      </span>
+                      <span class="font-display text-xs tabular-nums text-ink/60">{l.aprobadas}/{l.etapas}</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 font-display text-sm tabular-nums text-ink/70">{l.desbloqueadas} de {l.etapas}</td>
+                  <td class="px-5 py-4 font-display text-sm text-ink/70">{l.entregada_el ? fecha(l.entregada_el) : '—'}</td>
+                  <td class="px-5 py-4 font-display text-sm">
+                    {l.visitas > 0 ? (
+                      <>
+                        <span class="font-semibold tabular-nums text-ink">{l.visitas}</span>
+                        <span class="block text-xs text-ink/50">última {haceDias(l.ultima_visita!)}</span>
+                      </>
+                    ) : l.entregada_el ? (
+                      <span class="text-ink/45">Sin visitas</span>
+                    ) : (
+                      <span class="text-ink/30">—</span>
+                    )}
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex justify-end gap-1">
+                      <a href={`/admin/landings/${l.id}`} class="rounded-lg p-2 text-ink/60 hover:bg-ink/[0.06] hover:text-ink" aria-label={`Editar la landing de ${l.empresa}`} data-tip="Editar">
+                        <Icono nombre="lapiz" />
+                      </a>
+                      <a href={`/admin/landings/${l.id}/vista`} target="_blank" class="rounded-lg p-2 text-ink/60 hover:bg-ink/[0.06] hover:text-ink" aria-label={`Vista previa de la landing de ${l.empresa}`} data-tip="Vista previa">
+                        <Icono nombre="ojo" />
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>

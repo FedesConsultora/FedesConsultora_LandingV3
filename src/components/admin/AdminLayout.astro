@@ -11,12 +11,8 @@ const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
   { label: 'Inicio', href: '/admin', icono: 'inicio', activo: path === '/admin' },
-  {
-    label: 'Pipeline',
-    href: '/admin/leads',
-    icono: 'pipeline',
-    activo: (path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo') || path.startsWith('/admin/landings'),
-  },
+  { label: 'Pipeline', href: '/admin/leads', icono: 'pipeline', activo: path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo' },
+  { label: 'Landings', href: '/admin/landings', icono: 'documento', activo: path.startsWith('/admin/landings') },
   { label: 'Nuevo lead', href: '/admin/leads/nuevo', icono: 'nuevo', activo: path === '/admin/leads/nuevo' },
 ] as const;
 const nombre = Astro.locals.admin?.nombre ?? '';
