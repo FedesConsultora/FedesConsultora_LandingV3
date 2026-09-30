@@ -1,66 +1,41 @@
 ---
+// Pipeline de leads: tablero (columnas por estado, arrastrar y soltar) o lista, con búsqueda
+// y filtros por fuente y sector. Los filtros viajan en la URL, así se pueden compartir.
 export const prerender = false;
 import AdminLayout from '../../../components/admin/AdminLayout.astro';
-import { db, hasDb } from '../../../lib/db';
-import { contarPorEstado, listarLeads, type LeadFila } from '../../../lib/leads';
-import { ESTADOS, FUENTES, TAMANOS, etiqueta, fechaISO } from '../../../lib/pipeline';
+import { listarLeads, listarSectores, type LeadConLanding } from '../../../lib/leads';
+import { ESTADOS, FUENTES, MOTIVOS_PERDIDO, TAMANOS, etiqueta, fechaISO } from '../../../lib/pipeline';
 
-const filtro = ESTADOS.some((e) => e.codigo === Astro.url.searchParams.get('estado'))
-  ? Astro.url.searchParams.get('estado')!
-  : undefined;
-
-let todos: LeadFila[] = [];
-let leads: LeadFila[] = [];
-let porEstado: Record<string, number> = {};
-let fallosAviso = 0;
-let dbError: string | null = null;
-
-if (hasDb()) {
-  try {
-    [todos, porEstado, [{ n: fallosAviso }]] = await Promise.all([
-      listarLeads(),
-      contarPorEstado(),
-      db()`SELECT count(*)::int AS n FROM formularios WHERE resend_status = 'failed'`,
-    ]);
-    leads = filtro ? todos.filter((l) => l.estado === filtro) : todos;
-  } catch (e) {
-    console.error('[admin] Error de conexión a la base', e);
-    dbError = 'No pudimos conectar con la base de datos. Revisá que las migraciones estén aplicadas (npm run db:migrate).';
-  }
-} else {
-  dbError = 'Todavía no hay una base de datos conectada (falta POSTGRES_URL).';
-}
-
-const now = Date.now();
-const day = 24 * 60 * 60 * 1000;
-const inLast = (d: Date, ms: number) => now - new Date(d).getTime() < ms;
-
-const leadsWeek = todos.filter((l) => inLast(l.created_at, 7 * day)).length;
-const leadsMonth = todos.filter((l) => inLast(l.created_at, 30 * day)).length;
-
-const porResolver = Object.entries(
-  todos.reduce<Record<string, number>>((acc, l) => {
-    if (l.resolver) acc[l.resolver] = (acc[l.resolver] ?? 0) + 1;
-    return acc;
-  }, {}),
-).sort((a, b) => b[1] - a[1]);
-const maxResolver = Math.max(1, ...porResolver.map(([, n]) => n));
-
-// Fecha AAAA-MM-DD en hora de Buenos Aires (el servidor corre en UTC).
 const TZ = 'America/Argentina/Buenos_Aires';
-const diaAR = (d: Date | number) => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
+const csrf = Astro.locals.admin!.csrf;
+const params = Astro.url.searchParams;
+const vista = params.get('vista') === 'lista' ? 'lista' : 'tablero';
+const q = params.get('q')?.trim().slice(0, 100) ?? '';
+const fuente = FUENTES.some((f) => f.codigo === params.get('fuente')) ? params.get('fuente')! : '';
+const sectores = await listarSectores();
+const sectorParam = Number(params.get('sector'));
+const sector = sectores.some((s) => s.id === sectorParam) ? sectorParam : undefined;
+const estadoLista = vista === 'lista' && ESTADOS.some((e) => e.codigo === params.get('estado')) ? params.get('estado')! : '';
 
-// Últimos 14 días, para el mini gráfico de barras (leads nuevos por día).
-const days = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date(now - (13 - i) * day);
-  const key = diaAR(d);
-  const count = todos.filter((l) => diaAR(l.created_at) === key).length;
-  return { key, count, label: d.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit' }) };
-});
-const maxDay = Math.max(1, ...days.map((d) => d.count));
+const todos = await listarLeads({ q, fuente: fuente || undefined, sector });
+const leads = estadoLista ? todos.filter((l) => l.estado === estadoLista) : todos;
+const porEstado = Object.fromEntries(ESTADOS.map((e) => [e.codigo, todos.filter((l) => l.estado === e.codigo)]));
+const hayFiltros = Boolean(q || fuente || sector);
 
-const hoy = diaAR(now);
+// Enlace que conserva los filtros actuales y cambia algunos.
+const url = (cambios: Record<string, string | number | undefined>) => {
+  const u = new URLSearchParams({ vista, ...(q && { q }), ...(fuente && { fuente }), ...(sector && { sector: String(sector) }) });
+  for (const [k, v] of Object.entries(cambios)) v === undefined || v === '' ? u.delete(k) : u.set(k, String(v));
+  if (u.get('vista') === 'tablero') u.delete('vista');
+  const s = u.toString();
+  return `/admin/leads${s ? `?${s}` : ''}`;
+};
+
+const hoy = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 const fecha = (d: Date) => new Date(d).toLocaleDateString('es-AR', { timeZone: TZ });
+const fechaSesion = (d: Date) => new Date(d).toLocaleString('es-AR', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const etiquetaLanding = (l: LeadConLanding) =>
+  !l.landing_estado ? null : l.landing_estado === 'revocada' ? 'Landing revocada' : l.landing_entregada ? 'Landing entregada' : 'Landing en armado';
 
 // Para la descarga en CSV: los leads de la vista actual, con etiquetas legibles.
 const csvRows = leads.map((l) => ({
@@ -86,89 +61,275 @@ const csvRows = leads.map((l) => ({
 
 <AdminLayout title="Leads">
   <div class="flex flex-wrap items-end justify-between gap-4">
-    <h1 class="text-2xl font-bold md:text-3xl">Leads</h1>
-    <a href="/admin/leads/nuevo" class="btn btn-primary !py-2.5">Nuevo lead</a>
+    <h1 class="text-2xl font-bold md:text-3xl">Pipeline</h1>
+    <div class="flex items-center gap-2">
+      <nav class="flex rounded-full border border-ink/15 p-1 font-display text-xs font-semibold" aria-label="Vista">
+        <a href={url({ vista: 'tablero', estado: undefined })} class:list={['rounded-full px-4 py-1.5', vista === 'tablero' ? 'bg-ink text-white' : 'text-ink/60 hover:text-ink']} aria-current={vista === 'tablero' ? 'page' : undefined}>Tablero</a>
+        <a href={url({ vista: 'lista' })} class:list={['rounded-full px-4 py-1.5', vista === 'lista' ? 'bg-ink text-white' : 'text-ink/60 hover:text-ink']} aria-current={vista === 'lista' ? 'page' : undefined}>Lista</a>
+      </nav>
+      <a href="/admin/leads/nuevo" class="btn btn-primary !py-2.5">Nuevo lead</a>
+    </div>
   </div>
 
+  <!-- Búsqueda y filtros (GET: quedan en la URL) -->
+  <form method="get" class="mt-6 flex flex-wrap items-end gap-3" role="search">
+    {vista === 'lista' && <input type="hidden" name="vista" value="lista" />}
+    <div class="min-w-[220px] flex-1">
+      <label for="q" class="admin-label">Buscar</label>
+      <input id="q" name="q" value={q} type="search" placeholder="Empresa, nombre o email" class="admin-input" />
+    </div>
+    <div>
+      <label for="fuente" class="admin-label">Fuente</label>
+      <select id="fuente" name="fuente" class="admin-input">
+        <option value="">Todas</option>
+        {FUENTES.map((f) => <option value={f.codigo} selected={fuente === f.codigo}>{f.etiqueta}</option>)}
+      </select>
+    </div>
+    <div>
+      <label for="sector" class="admin-label">Sector</label>
+      <select id="sector" name="sector" class="admin-input">
+        <option value="">Todos</option>
+        {sectores.map((s) => <option value={s.id} selected={sector === s.id}>{s.nombre}</option>)}
+      </select>
+    </div>
+    <button class="btn btn-outline-dark !py-2">Filtrar</button>
+    {hayFiltros && <a href={url({ q: undefined, fuente: undefined, sector: undefined })} class="pb-2 font-display text-sm text-ink/60 underline">Limpiar</a>}
+  </form>
+  {hayFiltros && <p class="mt-3 text-sm text-ink/60">{todos.length === 1 ? '1 lead encontrado.' : `${todos.length} leads encontrados.`}</p>}
+
+  <p id="aviso-tablero" role="status" class="mt-4 hidden rounded-xl px-5 py-3 text-sm"></p>
+
   {
-    dbError && (
-      <p class="mt-6 rounded-xl px-5 py-4 text-sm" style="border:1px solid #8f5f16; color:#8f5f16; background:#faf0da">
-        {dbError}
-      </p>
+    vista === 'tablero' ? (
+      <div class="mt-6 flex items-start gap-4 overflow-x-auto pb-4" id="tablero">
+        {ESTADOS.map((e) => (
+          <section class="flex w-[260px] shrink-0 flex-col rounded-2xl bg-ink/[0.04] p-3" data-columna={e.codigo} aria-label={e.etiqueta}>
+            <h2 class="flex items-center justify-between px-1 pb-3 font-display text-xs font-semibold uppercase tracking-wide text-ink/60">
+              {e.etiqueta}
+              <span class="rounded-full bg-white px-2 py-0.5 text-ink/70" data-contador>{porEstado[e.codigo].length}</span>
+            </h2>
+            <div class="flex min-h-[80px] flex-1 flex-col gap-2 rounded-xl" data-zona>
+              {porEstado[e.codigo].map((l) => {
+                const fechaPaso = fechaISO(l.fecha_proximo_paso);
+                const landing = etiquetaLanding(l);
+                return (
+                  <article class="cursor-grab rounded-xl border border-ink/10 bg-white p-3 shadow-sm active:cursor-grabbing" draggable="true" data-lead={l.id} data-estado={l.estado}>
+                    <a href={`/admin/leads/${l.id}`} class="font-display text-sm font-semibold text-azul hover:underline">{l.empresa}</a>
+                    <p class="mt-0.5 text-xs text-ink/60">{[l.nombre, l.cargo].filter(Boolean).join(' · ')}</p>
+                    <div class="mt-2 flex flex-wrap gap-1">
+                      {l.estado === 'agendo' && l.fecha_sesion && <span class="admin-tag !text-[10px]">Sesión {fechaSesion(l.fecha_sesion)}</span>}
+                      {landing && <span class="admin-tag !text-[10px]">{landing}</span>}
+                      {fechaPaso && (
+                        <span class:list={['admin-tag !text-[10px]', fechaPaso < hoy && '!bg-[#fbeae3] !text-[#a8412b]']}>
+                          {fechaPaso < hoy ? 'Vencido' : 'Paso'} {fechaPaso.split('-').reverse().slice(0, 2).join('/')}
+                        </span>
+                      )}
+                    </div>
+                    <!-- En celulares (o sin JavaScript) el estado se cambia con el selector. -->
+                    <form method="post" action={`/admin/leads/${l.id}`} class="mt-2 md:hidden">
+                      <input type="hidden" name="csrf" value={csrf} />
+                      <input type="hidden" name="accion" value="estado" />
+                      <label class="sr-only" for={`estado-${l.id}`}>Cambiar estado</label>
+                      <select id={`estado-${l.id}`} name="estado" class="admin-input !mt-0 !py-1 !text-xs" data-selector-estado>
+                        {ESTADOS.map((x) => <option value={x.codigo} selected={x.codigo === l.estado}>{x.etiqueta}</option>)}
+                      </select>
+                      <noscript><button class="btn btn-outline-dark mt-2 !px-3 !py-1 !text-xs">Mover</button></noscript>
+                    </form>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    ) : (
+      <>
+        <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <nav class="flex flex-wrap gap-2" aria-label="Filtrar por estado">
+            <a href={url({ estado: undefined })} class:list={['admin-tag', !estadoLista && '!bg-ink !text-white']}>Todos · {todos.length}</a>
+            {ESTADOS.map((e) => (
+              <a href={url({ estado: e.codigo })} class:list={['admin-tag', estadoLista === e.codigo && '!bg-ink !text-white']}>
+                {e.etiqueta} · {porEstado[e.codigo].length}
+              </a>
+            ))}
+          </nav>
+          <button id="export-csv" type="button" class="btn btn-outline-dark !py-2 !text-xs">Descargar CSV</button>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+          <table class="w-full min-w-[860px] border-collapse text-sm">
+            <thead>
+              <tr class="border-b border-ink/10 bg-ink/[0.03] text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+                <th class="p-3">Empresa</th>
+                <th class="p-3">Contacto</th>
+                <th class="p-3">Estado</th>
+                <th class="p-3">Fuente</th>
+                <th class="p-3">Próximo paso</th>
+                <th class="p-3">Actualizado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => {
+                const fechaPaso = fechaISO(l.fecha_proximo_paso);
+                const vencido = fechaPaso && fechaPaso < hoy;
+                return (
+                  <tr class="border-b border-ink/5 align-top hover:bg-ink/[0.02]">
+                    <td class="p-3">
+                      <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                      {l.sector && <span class="block text-xs text-ink/50">{l.sector}</span>}
+                    </td>
+                    <td class="p-3">
+                      {l.nombre}
+                      {l.cargo && <span class="block text-xs text-ink/50">{l.cargo}</span>}
+                    </td>
+                    <td class="p-3"><span class="admin-tag">{etiqueta(ESTADOS, l.estado)}</span></td>
+                    <td class="p-3 text-ink/70">{etiqueta(FUENTES, l.fuente)}</td>
+                    <td class="p-3">
+                      {l.proximo_paso ?? '—'}
+                      {fechaPaso && (
+                        <span class:list={['block text-xs', vencido ? 'font-semibold text-[#a8412b]' : 'text-ink/50']}>
+                          {vencido ? 'Vencido: ' : ''}
+                          {fechaPaso.split('-').reverse().join('/')}
+                        </span>
+                      )}
+                    </td>
+                    <td class="whitespace-nowrap p-3 text-ink/60">{fecha(l.actualizado_el)}</td>
+                  </tr>
+                );
+              })}
+              {leads.length === 0 && (
+                <tr>
+                  <td colspan="6" class="p-8 text-center text-ink/50">No hay leads{hayFiltros || estadoLista ? ' con estos filtros' : ''}.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </>
     )
   }
 
-  <!-- Pipeline -->
-  <div class="mt-10 flex flex-wrap items-center justify-between gap-4">
-    <h2 class="text-lg font-semibold">Pipeline</h2>
-    <button id="export-csv" type="button" class="btn btn-outline-dark !py-2 !text-xs">Descargar CSV</button>
-  </div>
-
-  <nav class="mt-4 flex flex-wrap gap-2" aria-label="Filtrar por estado">
-    <a href="/admin/leads" class:list={['admin-tag', !filtro && '!bg-ink !text-white']}>Todos · {todos.length}</a>
-    {
-      ESTADOS.map((e) => (
-        <a href={`/admin/leads?estado=${e.codigo}`} class:list={['admin-tag', filtro === e.codigo && '!bg-ink !text-white']}>
-          {e.etiqueta} · {porEstado[e.codigo] ?? 0}
-        </a>
-      ))
-    }
-  </nav>
-
-  <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
-    <table class="w-full min-w-[860px] border-collapse text-sm">
-      <thead>
-        <tr class="border-b border-ink/10 bg-ink/[0.03] text-left font-display text-[11px] font-semibold uppercase tracking-wide text-ink/50">
-          <th class="p-3">Empresa</th>
-          <th class="p-3">Contacto</th>
-          <th class="p-3">Estado</th>
-          <th class="p-3">Fuente</th>
-          <th class="p-3">Próximo paso</th>
-          <th class="p-3">Actualizado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {
-          leads.map((l) => {
-            const fechaPaso = fechaISO(l.fecha_proximo_paso);
-            const vencido = fechaPaso && fechaPaso < hoy;
-            return (
-              <tr class="border-b border-ink/5 align-top hover:bg-ink/[0.02]">
-                <td class="p-3">
-                  <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                  {l.sector && <span class="block text-xs text-ink/50">{l.sector}</span>}
-                </td>
-                <td class="p-3">
-                  {l.nombre}
-                  {l.cargo && <span class="block text-xs text-ink/50">{l.cargo}</span>}
-                </td>
-                <td class="p-3"><span class="admin-tag">{etiqueta(ESTADOS, l.estado)}</span></td>
-                <td class="p-3 text-ink/70">{etiqueta(FUENTES, l.fuente)}</td>
-                <td class="p-3">
-                  {l.proximo_paso ?? '—'}
-                  {fechaPaso && (
-                    <span class:list={['block text-xs', vencido ? 'font-semibold text-[#a8412b]' : 'text-ink/50']}>
-                      {vencido ? 'Vencido: ' : ''}{fechaPaso.split('-').reverse().join('/')}
-                    </span>
-                  )}
-                </td>
-                <td class="whitespace-nowrap p-3 text-ink/60">{fecha(l.actualizado_el)}</td>
-              </tr>
-            );
-          })
-        }
-        {
-          leads.length === 0 && !dbError && (
-            <tr><td colspan="6" class="p-8 text-center text-ink/50">No hay leads{filtro ? ' en este estado' : ''}.</td></tr>
-          )
-        }
-      </tbody>
-    </table>
-  </div>
+  <!-- Motivo obligatorio al soltar una tarjeta en "Perdido". -->
+  <dialog id="dialogo-perdido" class="w-[min(420px,calc(100vw-32px))] rounded-2xl p-6 backdrop:bg-ink/40">
+    <div>
+      <h2 class="font-display text-lg font-semibold">Marcar como perdido</h2>
+      <p class="mt-1 text-sm text-ink/60">Elegí el motivo.</p>
+      <label for="motivo-perdido" class="admin-label mt-4">Motivo</label>
+      <select id="motivo-perdido" class="admin-input">
+        {MOTIVOS_PERDIDO.map((m) => <option value={m.codigo}>{m.etiqueta}</option>)}
+      </select>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" data-respuesta="cancelar" class="btn btn-outline-dark !px-4 !py-2 !text-xs">Cancelar</button>
+        <button type="button" data-respuesta="confirmar" class="btn btn-primary !px-4 !py-2 !text-xs">Marcar como perdido</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- "<" escapado: los datos vienen del formulario público y no deben poder cerrar esta etiqueta. -->
   <script type="application/json" id="leads-data" set:html={JSON.stringify(csvRows).replace(/</g, '\\u003c')} />
   <script>
+    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    const aviso = document.getElementById('aviso-tablero')!;
+    const dialogo = document.getElementById('dialogo-perdido') as HTMLDialogElement;
+
+    function mostrarAviso(texto: string, error = false) {
+      aviso.textContent = texto;
+      aviso.className = `mt-4 rounded-xl px-5 py-3 text-sm ${error ? 'border border-[#a8412b]/40 bg-[#fbeae3] text-[#a8412b]' : 'border border-azul/30 bg-azul/[0.06] text-azul'}`;
+    }
+
+    // Pide el motivo si el destino es "Perdido". Devuelve null si se cancela (botón o Escape).
+    let responder: ((motivo: string | null) => void) | null = null;
+    function pedirMotivo(): Promise<string | null> {
+      return new Promise((resolve) => {
+        responder = resolve;
+        dialogo.showModal();
+      });
+    }
+    function cerrarDialogo(motivo: string | null) {
+      dialogo.close();
+      responder?.(motivo);
+      responder = null;
+    }
+    dialogo.querySelectorAll<HTMLButtonElement>('[data-respuesta]').forEach((b) =>
+      b.addEventListener('click', () =>
+        cerrarDialogo(b.dataset.respuesta === 'confirmar' ? (document.getElementById('motivo-perdido') as HTMLSelectElement).value : null),
+      ),
+    );
+    dialogo.addEventListener('cancel', (ev) => {
+      ev.preventDefault();
+      cerrarDialogo(null);
+    });
+
+    function actualizarContadores() {
+      document.querySelectorAll<HTMLElement>('[data-columna]').forEach((col) => {
+        col.querySelector('[data-contador]')!.textContent = String(col.querySelectorAll('[data-lead]').length);
+      });
+    }
+
+    async function mover(tarjeta: HTMLElement, estado: string) {
+      const anterior = tarjeta.dataset.estado!;
+      if (estado === anterior) return;
+      let motivo: string | null = null;
+      if (estado === 'perdido') {
+        motivo = await pedirMotivo();
+        if (!motivo) return volver(tarjeta, anterior);
+      }
+      // Se mueve de inmediato y se revierte si el servidor rechaza el cambio.
+      colocar(tarjeta, estado);
+      const datos = new FormData();
+      datos.set('estado', estado);
+      if (motivo) datos.set('motivo_perdido', motivo);
+      try {
+        const res = await fetch(`/api/admin/leads/${tarjeta.dataset.lead}/estado`, { method: 'POST', body: datos, headers: { 'x-csrf-token': csrf } });
+        const r = await res.json();
+        if (!res.ok || !r.ok) throw new Error(r.error);
+        const empresa = tarjeta.querySelector('a')?.textContent ?? 'El lead';
+        const destino = document.querySelector(`[data-columna="${estado}"]`)?.getAttribute('aria-label');
+        mostrarAviso(`${empresa} pasó a «${destino}».`);
+      } catch (e) {
+        volver(tarjeta, anterior);
+        mostrarAviso(e instanceof Error && e.message ? e.message : 'No se pudo cambiar el estado. Probá de nuevo.', true);
+      }
+    }
+
+    function colocar(tarjeta: HTMLElement, estado: string) {
+      document.querySelector(`[data-columna="${estado}"] [data-zona]`)?.prepend(tarjeta);
+      tarjeta.dataset.estado = estado;
+      const selector = tarjeta.querySelector<HTMLSelectElement>('[data-selector-estado]');
+      if (selector) selector.value = estado;
+      actualizarContadores();
+    }
+    const volver = colocar;
+
+    // Arrastrar y soltar (escritorio).
+    let arrastrada: HTMLElement | null = null;
+    document.querySelectorAll<HTMLElement>('[data-lead]').forEach((t) => {
+      t.addEventListener('dragstart', (ev) => {
+        arrastrada = t;
+        ev.dataTransfer?.setData('text/plain', t.dataset.lead!);
+        t.classList.add('opacity-50');
+      });
+      t.addEventListener('dragend', () => t.classList.remove('opacity-50'));
+    });
+    document.querySelectorAll<HTMLElement>('[data-columna]').forEach((col) => {
+      col.addEventListener('dragover', (ev) => {
+        ev.preventDefault();
+        col.classList.add('ring-2', 'ring-azul/40');
+      });
+      col.addEventListener('dragleave', () => col.classList.remove('ring-2', 'ring-azul/40'));
+      col.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        col.classList.remove('ring-2', 'ring-azul/40');
+        if (arrastrada) mover(arrastrada, col.dataset.columna!);
+        arrastrada = null;
+      });
+    });
+
+    // Selector de estado (celulares): mismo camino que arrastrar.
+    document.querySelectorAll<HTMLSelectElement>('[data-selector-estado]').forEach((s) => {
+      s.addEventListener('change', () => mover(s.closest<HTMLElement>('[data-lead]')!, s.value));
+    });
+
     document.getElementById('export-csv')?.addEventListener('click', () => {
       const data: Record<string, unknown>[] = JSON.parse(document.getElementById('leads-data')?.textContent || '[]');
       if (data.length === 0) return;

@@ -47,15 +47,30 @@ export async function listarSectores() {
   return (await db()`SELECT id, nombre FROM sectores WHERE activo ORDER BY orden, nombre`) as Sector[];
 }
 
-export async function listarLeads(estado?: string) {
-  const rows = estado
-    ? await db()`
-        SELECT l.*, s.nombre AS sector FROM leads l LEFT JOIN sectores s ON s.id = l.sector_id
-        WHERE l.estado = ${estado} ORDER BY l.actualizado_el DESC`
-    : await db()`
-        SELECT l.*, s.nombre AS sector FROM leads l LEFT JOIN sectores s ON s.id = l.sector_id
-        ORDER BY l.actualizado_el DESC`;
-  return rows as LeadFila[];
+export type FiltrosLeads = { q?: string; fuente?: string; sector?: number; estado?: string };
+
+// Lead con un resumen de su landing más reciente, para el tablero y la lista.
+export type LeadConLanding = LeadFila & { landing_estado: string | null; landing_entregada: boolean };
+
+// Búsqueda por empresa, nombre o email, sin distinguir mayúsculas ni acentos (los comodines
+// % y _ que escriba el usuario se escapan), y filtros opcionales. Un filtro vacío no filtra.
+export async function listarLeads(f: FiltrosLeads = {}) {
+  const q = f.q?.trim() ? `%${f.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+  const rows = await db()`
+    SELECT l.*, s.nombre AS sector, la.estado AS landing_estado, (la.entregada_el IS NOT NULL) AS landing_entregada
+    FROM leads l
+    LEFT JOIN sectores s ON s.id = l.sector_id
+    LEFT JOIN LATERAL (
+      SELECT estado, entregada_el FROM landings WHERE lead_id = l.id ORDER BY creada_el DESC LIMIT 1
+    ) la ON true
+    WHERE (${q}::text IS NULL OR unaccent(l.empresa) ILIKE unaccent(${q}) OR unaccent(l.nombre) ILIKE unaccent(${q})
+           OR l.email ILIKE ${q})
+      AND (${f.fuente ?? null}::text IS NULL OR l.fuente = ${f.fuente ?? null})
+      AND (${f.sector ?? null}::int IS NULL OR l.sector_id = ${f.sector ?? null})
+      AND (${f.estado ?? null}::text IS NULL OR l.estado = ${f.estado ?? null})
+    ORDER BY l.actualizado_el DESC
+  `;
+  return rows as LeadConLanding[];
 }
 
 export async function contarPorEstado() {

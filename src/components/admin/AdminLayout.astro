@@ -30,7 +30,11 @@ const nav = [
               nav.map((n) => (
                 <a
                   href={n.href}
-                  class:list={['font-display text-sm font-semibold', n.activo ? 'text-celeste' : 'text-white/75 hover:text-white']}
+                  class:list={[
+                    'whitespace-nowrap font-display text-sm font-semibold',
+                    n.activo ? 'text-celeste' : 'text-white/75 hover:text-white',
+                    n.href === '/admin/leads/nuevo' && 'hidden sm:inline',
+                  ]}
                   aria-current={n.activo ? 'page' : undefined}
                 >
                   {n.label}
@@ -59,7 +63,8 @@ const nav = [
     // se envía, se ignoran nuevos envíos y sus botones quedan deshabilitados.
     document.addEventListener('submit', (ev) => {
       const form = ev.target as HTMLFormElement;
-      if (ev.defaultPrevented) return;
+      // Los formularios de diálogo (method="dialog") solo cierran el diálogo: no se envían al servidor.
+      if (ev.defaultPrevented || form.method === 'dialog') return;
       if (form.dataset.enviando) {
         ev.preventDefault();
         return;
