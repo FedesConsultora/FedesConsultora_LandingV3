@@ -1,0 +1,25 @@
+---
+// Íconos de trazo del panel (SVG propios, sin librerías externas). Heredan el color del texto.
+interface Props {
+  nombre: 'inicio' | 'pipeline' | 'nuevo' | 'salir' | 'externo' | 'buscar' | 'personas' | 'calendario' | 'enviar' | 'tendencia' | 'menu';
+  class?: string;
+}
+const { nombre, class: clase = 'h-4 w-4' } = Astro.props;
+const trazos: Record<Props['nombre'], string[]> = {
+  inicio: ['M4 4h7v7H4z', 'M13 4h7v4h-7z', 'M13 10h7v10h-7z', 'M4 13h7v7H4z'],
+  pipeline: ['M4 4h4v16H4z', 'M10 4h4v10h-4z', 'M16 4h4v13h-4z'],
+  nuevo: ['M12 5v14', 'M5 12h14'],
+  salir: ['M14 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3', 'M10 12h10', 'M17 9l3 3-3 3'],
+  externo: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
+  buscar: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'M20 20l-4-4'],
+  personas: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M3 20a6 6 0 0 1 12 0', 'M16 3.5a4 4 0 0 1 0 7.5', 'M21 20a6 6 0 0 0-4-5.6'],
+  calendario: ['M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z', 'M16 3v4', 'M8 3v4', 'M4 10h16'],
+  enviar: ['M4 12l16-8-6 16-3-7z', 'M11 13l9-9'],
+  tendencia: ['M4 17l6-6 4 4 6-7', 'M15 8h5v5'],
+  menu: ['M4 7h16', 'M4 12h16', 'M4 17h16'],
+};
+---
+
+<svg viewBox="0 0 24 24" class={clase} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  {trazos[nombre].map((d) => <path d={d} />)}
+</svg>

@@ -1,0 +1,62 @@
+---
+// Embudo del pipeline: una sola serie (un solo color), barras horizontales que nacen de la misma
+// base, con el valor al final de cada barra y el % de paso respecto de la etapa anterior.
+import type { PasoEmbudo } from '../../../lib/graficos';
+
+interface Props {
+  pasos: PasoEmbudo[];
+  dias: number;
+}
+const { pasos, dias } = Astro.props;
+const maximo = Math.max(1, ...pasos.map((p) => p.n));
+---
+
+<section class="rounded-2xl bg-white p-6" aria-labelledby="titulo-embudo">
+  <div class="flex items-baseline justify-between gap-4">
+    <h2 id="titulo-embudo" class="font-display text-base font-semibold text-ink">Embudo del pipeline</h2>
+    <p class="font-display text-xs text-ink/50">Leads creados en los últimos {dias} días</p>
+  </div>
+
+  <div class="mt-5 grid grid-cols-[112px_minmax(0,1fr)_44px] items-center gap-x-3 gap-y-3 sm:grid-cols-[132px_minmax(0,1fr)_56px]">
+    <span></span>
+    <span></span>
+    <span class="text-right font-display text-[11px] text-ink/45">Paso</span>
+    {
+      pasos.map((p) => (
+        <>
+          <span class="font-display text-sm text-ink/80">{p.etiqueta}</span>
+          <div
+            class="flex items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-azul/50"
+            tabindex="0"
+            data-tip={`${p.etiqueta}: ${p.n} ${p.n === 1 ? 'lead' : 'leads'}${p.paso !== null ? `\n${p.paso}% de la etapa anterior` : ''}`}
+          >
+            <span
+              class="block h-[18px] shrink-0 rounded-r bg-azul"
+              style={`width: ${p.n === 0 ? 0 : Math.max(2, (p.n / maximo) * 88)}%`}
+            />
+            <span class="font-display text-sm font-semibold tabular-nums text-ink">{p.n}</span>
+          </div>
+          <span class="text-right font-display text-sm tabular-nums text-ink/55">{p.paso === null ? '' : `${p.paso}%`}</span>
+        </>
+      ))
+    }
+  </div>
+
+  <details class="mt-5 font-display text-xs text-ink/60">
+    <summary class="cursor-pointer select-none hover:text-ink">Ver como tabla</summary>
+    <table class="mt-3 w-full text-left text-sm">
+      <thead class="text-xs text-ink/50">
+        <tr><th class="py-1 font-semibold">Etapa</th><th class="py-1 text-right font-semibold">Leads</th><th class="py-1 text-right font-semibold">Paso</th></tr>
+      </thead>
+      <tbody>
+        {pasos.map((p) => (
+          <tr class="border-t border-ink/10">
+            <td class="py-1.5 text-ink">{p.etiqueta}</td>
+            <td class="py-1.5 text-right tabular-nums text-ink">{p.n}</td>
+            <td class="py-1.5 text-right tabular-nums text-ink/60">{p.paso === null ? '—' : `${p.paso}%`}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+</section>

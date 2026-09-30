@@ -1,0 +1,31 @@
+---
+// Tarjeta de indicador: rótulo, número y una línea de contexto. Colores de la paleta de marca.
+import Icono from '../Icono.astro';
+
+interface Props {
+  rotulo: string;
+  valor: string;
+  contexto?: string;
+  icono: 'personas' | 'calendario' | 'enviar' | 'tendencia';
+  tono: 'azul' | 'celeste' | 'gris' | 'negro';
+  href?: string;
+}
+const { rotulo, valor, contexto, icono, tono, href } = Astro.props;
+// El texto usa el tono más oscuro de la misma familia que el fondo (nunca el color de la serie).
+const estilos = {
+  azul: 'bg-azul text-white',
+  celeste: 'bg-[#DCE8F1] text-[#1F3A4B]',
+  gris: 'bg-white text-ink',
+  negro: 'bg-ink text-white',
+};
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag href={href} class:list={['block rounded-2xl p-5 transition-transform', estilos[tono], href && 'hover:-translate-y-0.5']}>
+  <p class="flex items-center gap-2 font-display text-xs font-semibold opacity-80">
+    <Icono nombre={icono} class="h-4 w-4" />
+    {rotulo}
+  </p>
+  <p class="mt-3 font-display text-3xl font-extrabold">{valor}</p>
+  {contexto && <p class="mt-1 font-display text-xs opacity-75">{contexto}</p>}
+</Tag>

@@ -2,6 +2,7 @@
 // Marco común de las páginas del panel: encabezado, navegación y cierre de sesión.
 import Base from '../../layouts/Base.astro';
 import { site } from '../../content/site';
+import Icono from './Icono.astro';
 
 interface Props {
   title: string;
@@ -9,52 +10,74 @@ interface Props {
 const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
-  { label: 'Inicio', href: '/admin', activo: path === '/admin' },
+  { label: 'Inicio', href: '/admin', icono: 'inicio', activo: path === '/admin' },
   {
-    label: 'Leads',
+    label: 'Pipeline',
     href: '/admin/leads',
+    icono: 'pipeline',
     activo: (path.startsWith('/admin/leads') && path !== '/admin/leads/nuevo') || path.startsWith('/admin/landings'),
   },
-  { label: 'Nuevo lead', href: '/admin/leads/nuevo', activo: path === '/admin/leads/nuevo' },
-];
+  { label: 'Nuevo lead', href: '/admin/leads/nuevo', icono: 'nuevo', activo: path === '/admin/leads/nuevo' },
+] as const;
+const nombre = Astro.locals.admin?.nombre ?? '';
+const iniciales = nombre
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((p) => p[0].toUpperCase())
+  .join('');
 ---
 
 <Base title={`${title} | Panel | ${site.name}`} description="Panel de administración." noindex bare>
-  <div class="min-h-[100svh] bg-ink/[0.02]">
-    <header class="border-b border-ink/10 bg-ink text-white">
-      <div class="container-fedes flex h-16 items-center justify-between gap-6 md:h-20">
-        <div class="flex items-center gap-8">
-          <a href="/admin"><img src={site.logo} alt={site.name} width="2620" height="976" class="h-8 w-auto" /></a>
-          <nav class="flex items-center gap-5">
-            {
-              nav.map((n) => (
-                <a
-                  href={n.href}
-                  class:list={[
-                    'whitespace-nowrap font-display text-sm font-semibold',
-                    n.activo ? 'text-celeste' : 'text-white/75 hover:text-white',
-                    n.href === '/admin/leads/nuevo' && 'hidden sm:inline',
-                  ]}
-                  aria-current={n.activo ? 'page' : undefined}
-                >
-                  {n.label}
-                </a>
-              ))
-            }
-          </nav>
-        </div>
-        <div class="flex items-center gap-6">
-          <a href="https://analytics.google.com" target="_blank" rel="noopener" class="hidden font-display text-sm font-medium text-white/75 hover:text-celeste lg:inline">
-            Ver tráfico en Google Analytics
+  <div class="min-h-[100svh] bg-[#F4F6F7] lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+    <!-- Menú lateral (escritorio) / barra superior con menú desplegable (celular). -->
+    <aside class="bg-ink text-white lg:sticky lg:top-0 lg:flex lg:h-[100svh] lg:flex-col lg:px-4 lg:py-7">
+      <!-- En celulares el menú se abre y cierra con esta casilla (solo CSS, funciona sin JavaScript). -->
+      <input type="checkbox" id="menu-panel" class="peer sr-only" />
+      <div class="flex h-16 items-center justify-between px-5 lg:hidden">
+        <a href="/admin"><img src={site.logo} alt={site.name} width="2620" height="976" class="h-7 w-auto" /></a>
+        <label for="menu-panel" class="flex cursor-pointer items-center gap-2 font-display text-sm text-white/80">
+          <Icono nombre="menu" class="h-5 w-5" /> Menú
+        </label>
+      </div>
+      <div class="hidden peer-checked:block lg:flex lg:flex-1 lg:flex-col">
+        <a href="/admin" class="mb-10 hidden px-3 lg:block"><img src={site.logo} alt={site.name} width="2620" height="976" class="h-9 w-auto" /></a>
+        <nav class="flex flex-col gap-1 px-4 pb-4 lg:px-0 lg:pb-0" aria-label="Panel">
+          {
+            nav.map((n) => (
+              <a
+                href={n.href}
+                class:list={[
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold transition-colors',
+                  n.activo ? 'bg-azul text-white' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                ]}
+                aria-current={n.activo ? 'page' : undefined}
+              >
+                <Icono nombre={n.icono} />
+                {n.label}
+              </a>
+            ))
+          }
+          <a href="https://analytics.google.com" target="_blank" rel="noopener" class="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm text-white/50 hover:bg-white/10 hover:text-white">
+            <Icono nombre="externo" /> Tráfico del sitio
           </a>
-          <span class="hidden font-display text-sm text-white/60 sm:inline">{Astro.locals.admin?.nombre}</span>
-          <button id="logout" type="button" class="font-display text-sm font-semibold text-white hover:text-celeste">Salir</button>
+        </nav>
+        <div class="flex items-center gap-3 border-t border-white/10 px-7 py-4 lg:mt-auto lg:px-3 lg:pb-0 lg:pt-5">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-celeste font-display text-xs font-bold text-ink">{iniciales}</span>
+          <div class="min-w-0">
+            <p class="truncate font-display text-sm font-semibold">{nombre}</p>
+            <button id="logout" type="button" class="flex items-center gap-1.5 font-display text-xs text-white/60 hover:text-celeste">
+              <Icono nombre="salir" class="h-3.5 w-3.5" /> Salir
+            </button>
+          </div>
         </div>
       </div>
-    </header>
+    </aside>
 
-    <main class="container-fedes py-10 md:py-14">
-      <slot />
+    <main class="min-w-0 px-5 py-8 md:px-10 md:py-10">
+      <div class="mx-auto max-w-[1400px]">
+        <slot />
+      </div>
     </main>
   </div>
 

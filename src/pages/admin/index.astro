@@ -1,8 +1,15 @@
 ---
-// Inicio del panel: lo que requiere acción hoy, y abajo un resumen con números.
+// Inicio del panel: indicadores, embudo del pipeline, leads por semana, próximas sesiones y
+// lo que requiere acción hoy.
 export const prerender = false;
 import AdminLayout from '../../components/admin/AdminLayout.astro';
-import { db, hasDb } from '../../lib/db';
+import Icono from '../../components/admin/Icono.astro';
+import BarrasSemanales from '../../components/admin/graficos/BarrasSemanales.astro';
+import Embudo from '../../components/admin/graficos/Embudo.astro';
+import Indicador from '../../components/admin/graficos/Indicador.astro';
+import Tooltip from '../../components/admin/graficos/Tooltip.astro';
+import { hasDb } from '../../lib/db';
+import { DIAS_EMBUDO, SERIES_FUENTE, embudoPipeline, indicadores, leadsPorSemana } from '../../lib/metricas';
 import { descartarAvisoSinVisitas, pendientes } from '../../lib/pendientes';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -15,32 +22,21 @@ if (Astro.request.method === 'POST') {
   if (form.get('accion') === 'descartar_aviso' && Number.isInteger(landingId)) {
     await descartarAvisoSinVisitas(landingId, Astro.locals.admin!.id);
   }
-  return Astro.redirect('/admin', 303);
+  return Astro.redirect('/admin#sin-visitas', 303);
 }
 
-let p: Awaited<ReturnType<typeof pendientes>> | null = null;
-let resumen = { total: 0, semana: 0, mes: 0, fallos: 0, porDia: [] as { dia: string; n: number }[], porResolver: [] as { resolver: string; n: number }[] };
+let datos: {
+  p: Awaited<ReturnType<typeof pendientes>>;
+  k: Awaited<ReturnType<typeof indicadores>>;
+  embudo: Awaited<ReturnType<typeof embudoPipeline>>;
+  semanas: Awaited<ReturnType<typeof leadsPorSemana>>;
+} | null = null;
 let dbError: string | null = null;
 
 if (hasDb()) {
   try {
-    const [pend, [tot], porDia, porResolver] = await Promise.all([
-      pendientes(),
-      db()`
-        SELECT count(*)::int AS total,
-               count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS semana,
-               count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS mes,
-               (SELECT count(*)::int FROM formularios WHERE resend_status = 'failed') AS fallos
-        FROM leads
-      `,
-      db()`
-        SELECT (created_at AT TIME ZONE ${TZ})::date::text AS dia, count(*)::int AS n
-        FROM leads WHERE created_at > now() - interval '14 days' GROUP BY 1
-      `,
-      db()`SELECT resolver, count(*)::int AS n FROM leads WHERE resolver IS NOT NULL GROUP BY 1 ORDER BY 2 DESC`,
-    ]);
-    p = pend;
-    resumen = { ...(tot as typeof resumen), porDia: porDia as typeof resumen.porDia, porResolver: porResolver as typeof resumen.porResolver };
+    const [p, k, embudo, semanas] = await Promise.all([pendientes(), indicadores(), embudoPipeline(), leadsPorSemana()]);
+    datos = { p, k, embudo, semanas };
   } catch (e) {
     console.error('[admin] Error de conexión a la base', e);
     dbError = 'No pudimos conectar con la base de datos. Revisá que las migraciones estén aplicadas (npm run db:migrate).';
@@ -49,226 +45,248 @@ if (hasDb()) {
   dbError = 'Todavía no hay una base de datos conectada (falta POSTGRES_URL).';
 }
 
-const diaAR = (d: Date | number) => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
-const hoy = diaAR(Date.now());
-const fechaHora = (d: Date) =>
-  new Date(d).toLocaleString('es-AR', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const hoy = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+const fechaHoy = new Date().toLocaleDateString('es-AR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase());
+const dia = (d: Date) => new Date(d).toLocaleDateString('es-AR', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' });
+const hora = (d: Date) => new Date(d).toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
 const fechaCorta = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/');
 const haceDias = (d: Date) => {
   const dias = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
   return dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
 };
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
-// Últimos 14 días para el gráfico de barras.
-const dias = Array.from({ length: 14 }, (_, i) => {
-  const d = Date.now() - (13 - i) * 86400000;
-  const key = diaAR(d);
-  return { key, n: resumen.porDia.find((x) => x.dia === key)?.n ?? 0, label: new Date(d).toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit' }) };
-});
-const maxDia = Math.max(1, ...dias.map((d) => d.n));
-const maxResolver = Math.max(1, ...resumen.porResolver.map((r) => r.n));
-
-const secciones = p
-  ? [p.pasos.length, p.sinMarcar.length, p.proximas.length, p.nuevosWeb.length, p.enArmado.length, p.sinVisitas.length]
+const contadores = datos
+  ? [
+      { ancla: 'pasos', rotulo: 'Próximos pasos vencidos o de hoy', n: datos.p.pasos.length, alerta: datos.p.pasos.some((l) => l.fecha < hoy) },
+      { ancla: 'sin-marcar', rotulo: 'Sesiones sin marcar', n: datos.p.sinMarcar.length, alerta: datos.p.sinMarcar.length > 0 },
+      { ancla: 'nuevos-web', rotulo: 'Nuevos de la web sin tocar', n: datos.p.nuevosWeb.length, alerta: false },
+      { ancla: 'en-armado', rotulo: 'Landings en armado', n: datos.p.enArmado.length, alerta: false },
+      { ancla: 'sin-visitas', rotulo: 'Entregadas sin visitas', n: datos.p.sinVisitas.length, alerta: false },
+    ]
   : [];
-const totalPendientes = secciones.reduce((a, b) => a + b, 0);
+const hayPendientes = contadores.some((c) => c.n > 0);
 ---
 
 <AdminLayout title="Inicio">
-  <div class="flex flex-wrap items-end justify-between gap-4">
+  <Tooltip />
+
+  <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold md:text-3xl">Pendientes</h1>
-      <p class="mt-1 text-ink/60">
-        {
-          new Date().toLocaleDateString('es-AR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
-        }
-      </p>
+      <h1 class="font-display text-2xl font-bold text-ink md:text-3xl">Inicio</h1>
+      <p class="mt-1 font-display text-sm text-ink/55">{fechaHoy}</p>
     </div>
-    <div class="flex gap-2">
-      <a href="/admin/leads" class="btn btn-outline-dark !py-2.5">Ver pipeline</a>
-      <a href="/admin/leads/nuevo" class="btn btn-primary !py-2.5">Nuevo lead</a>
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="get" action="/admin/leads" role="search" class="flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2">
+        <Icono nombre="buscar" class="h-4 w-4 text-ink/40" />
+        <label for="buscar-lead" class="sr-only">Buscar lead</label>
+        <input id="buscar-lead" name="q" type="search" placeholder="Buscar lead" class="w-40 bg-transparent font-display text-sm outline-none placeholder:text-ink/40" />
+      </form>
+      <a href="/admin/leads/nuevo" class="btn btn-primary !py-2.5"><Icono nombre="nuevo" /> Nuevo lead</a>
     </div>
   </div>
 
-  {
-    dbError && (
-      <p class="mt-6 rounded-xl px-5 py-4 text-sm" style="border:1px solid #8f5f16; color:#8f5f16; background:#faf0da">
-        {dbError}
-      </p>
-    )
-  }
+  {dbError && <p class="mt-6 rounded-xl px-5 py-4 text-sm" style="border:1px solid #8f5f16; color:#8f5f16; background:#faf0da">{dbError}</p>}
 
   {
-    p && totalPendientes === 0 && (
-      <p class="admin-card mt-8 text-ink/60">No hay nada pendiente. Los próximos pasos, las sesiones y las landings por entregar van a aparecer acá.</p>
-    )
-  }
+    datos && (
+      <>
+        <!-- Indicadores -->
+        <div class="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Indicador tono="azul" icono="personas" rotulo="Leads activos" valor={String(datos.k.activos)} contexto={`${datos.k.nuevosSemana} nuevos en 7 días`} href="/admin/leads" />
+          <Indicador
+            tono="celeste"
+            icono="calendario"
+            rotulo="Sesiones, próximos 7 días"
+            valor={String(datos.k.sesionesProximas)}
+            contexto={datos.k.sesionesSinMarcar ? plural(datos.k.sesionesSinMarcar, 'pasada sin marcar', 'pasadas sin marcar') : 'Ninguna pasada sin marcar'}
+          />
+          <Indicador
+            tono="gris"
+            icono="enviar"
+            rotulo="Landings entregadas"
+            valor={String(datos.k.landingsEntregadas)}
+            contexto={`${datos.k.landingsConVisitas} con visitas`}
+          />
+          <Indicador
+            tono="negro"
+            icono="tendencia"
+            rotulo="De sesión a cliente"
+            valor={datos.k.conversion === null ? '—' : `${datos.k.conversion}%`}
+            contexto={datos.k.conSesion ? `${datos.k.clientes} de ${datos.k.conSesion}, últimos ${DIAS_EMBUDO} días` : `Sin sesiones en ${DIAS_EMBUDO} días`}
+          />
+        </div>
 
-  {
-    p && totalPendientes > 0 && (
-      <div class="mt-8 grid gap-6 lg:grid-cols-2">
-        {p.pasos.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Próximos pasos de hoy y vencidos · {p.pasos.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.pasos.map((l) => (
-                <li class="flex items-start justify-between gap-4 py-3">
-                  <div>
-                    <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                    <p class="text-sm text-ink/70">{l.proximo_paso ?? 'Sin descripción'}</p>
-                  </div>
-                  <span class:list={['admin-tag shrink-0', l.fecha < hoy && '!bg-[#fbeae3] !text-[#a8412b]']}>
-                    {l.fecha < hoy ? `Vencido ${fechaCorta(l.fecha)}` : 'Hoy'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <!-- Gráficos -->
+          <div class="min-w-0 space-y-6">
+            <Embudo pasos={datos.embudo} dias={DIAS_EMBUDO} />
+            <BarrasSemanales semanas={datos.semanas} series={SERIES_FUENTE} />
+          </div>
 
-        {p.sinMarcar.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Sesiones pasadas sin marcar como realizadas · {p.sinMarcar.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.sinMarcar.map((l) => (
-                <li class="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                    <p class="text-sm text-ink/60">{fechaHora(l.fecha_sesion)}</p>
-                  </div>
-                  <form method="post" action={`/admin/leads/${l.id}`}>
-                    <input type="hidden" name="csrf" value={csrf} />
-                    <input type="hidden" name="accion" value="estado" />
-                    <input type="hidden" name="estado" value="sesion_realizada" />
-                    <button class="btn btn-outline-dark !px-4 !py-1.5 !text-xs">Marcar realizada</button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+          <!-- Columna lateral: agenda y pendientes -->
+          <div class="space-y-6">
+            <section class="rounded-2xl bg-white p-6" aria-labelledby="titulo-agenda">
+              <h2 id="titulo-agenda" class="flex items-center gap-2 font-display text-base font-semibold text-ink">
+                <Icono nombre="calendario" /> Próximas sesiones
+              </h2>
+              {datos.p.proximas.length === 0 ? (
+                <p class="mt-4 font-display text-sm text-ink/50">No hay sesiones en los próximos 7 días.</p>
+              ) : (
+                <ul class="mt-4 space-y-2">
+                  {datos.p.proximas.map((l, i) => (
+                    <li>
+                      <a
+                        href={`/admin/leads/${l.id}`}
+                        class:list={['block rounded-xl p-3 transition-colors', i === 0 ? 'bg-[#DCE8F1] hover:bg-[#cfe0ec]' : 'bg-ink/[0.04] hover:bg-ink/[0.07]']}
+                      >
+                        <p class="font-display text-xs text-ink/60 first-letter:uppercase">
+                          {dia(l.fecha_sesion)} · {hora(l.fecha_sesion)}
+                        </p>
+                        <p class="mt-0.5 font-display text-sm font-semibold text-ink">{l.empresa}</p>
+                        <p class="font-display text-xs text-ink/55">{l.nombre}</p>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        {p.proximas.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Sesiones de los próximos 7 días · {p.proximas.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.proximas.map((l) => (
-                <li class="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                    <p class="text-sm text-ink/60">{l.nombre}</p>
-                  </div>
-                  <span class="admin-tag shrink-0">{fechaHora(l.fecha_sesion)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {p.nuevosWeb.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Nuevos del formulario web, sin tocar · {p.nuevosWeb.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.nuevosWeb.map((l) => (
-                <li class="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                    <p class="text-sm text-ink/60">{[l.nombre, l.resolver].filter(Boolean).join(' · ')}</p>
-                  </div>
-                  <span class="admin-tag shrink-0">{haceDias(l.created_at)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {p.enArmado.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Landings en armado · {p.enArmado.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.enArmado.map((l) => {
-                const lista = l.al_entregar > 0 && l.al_entregar_sin_aprobar === 0;
-                return (
-                  <li class="flex items-center justify-between gap-4 py-3">
-                    <div>
-                      <a href={`/admin/landings/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                      <p class="text-sm text-ink/60">
-                        {l.aprobadas} de {l.etapas} etapas aprobadas
-                      </p>
-                    </div>
-                    <span class:list={['admin-tag shrink-0', lista && '!bg-azul !text-white']}>{lista ? 'Lista para entregar' : 'Por aprobar'}</span>
+            <section class="rounded-2xl bg-white p-6" aria-labelledby="titulo-pendientes">
+              <h2 id="titulo-pendientes" class="font-display text-base font-semibold text-ink">Pendientes</h2>
+              <ul class="mt-3 divide-y divide-ink/10">
+                {contadores.map((c) => (
+                  <li>
+                    <a href={c.n ? `#${c.ancla}` : undefined} class:list={['flex items-center justify-between gap-3 py-2.5 font-display text-sm', c.n ? 'text-ink hover:text-azul' : 'text-ink/40']}>
+                      {c.rotulo}
+                      <span
+                        class:list={[
+                          'min-w-[28px] rounded-md px-2 py-0.5 text-center text-xs font-semibold tabular-nums',
+                          c.n === 0 ? 'bg-ink/[0.05] text-ink/40' : c.alerta ? 'bg-[#fbeae3] text-[#8a3321]' : 'bg-[#DCE8F1] text-[#1F3A4B]',
+                        ]}
+                      >
+                        {c.n}
+                      </span>
+                    </a>
                   </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
 
-        {p.sinVisitas.length > 0 && (
-          <section class="admin-card">
-            <h2 class="eyebrow text-ink/50">Landings entregadas sin visitas · {p.sinVisitas.length}</h2>
-            <ul class="mt-4 divide-y divide-ink/10">
-              {p.sinVisitas.map((l) => (
-                <li class="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <a href={`/admin/leads/${l.lead_id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
-                    <p class="text-sm text-ink/60">Entregada {haceDias(l.entregada_el)}</p>
-                  </div>
-                  <form method="post">
-                    <input type="hidden" name="csrf" value={csrf} />
-                    <input type="hidden" name="landing_id" value={l.id} />
-                    <button name="accion" value="descartar_aviso" class="btn btn-outline-dark !px-4 !py-1.5 !text-xs">Descartar aviso</button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          </section>
+        <!-- Detalle de pendientes -->
+        {hayPendientes && (
+          <>
+            <h2 class="mt-10 font-display text-lg font-semibold text-ink">Para hacer</h2>
+            <div class="mt-4 grid gap-6 lg:grid-cols-2">
+              {datos.p.pasos.length > 0 && (
+                <section id="pasos" class="scroll-mt-6 rounded-2xl bg-white p-6">
+                  <h3 class="eyebrow text-ink/50">Próximos pasos de hoy y vencidos · {datos.p.pasos.length}</h3>
+                  <ul class="mt-4 divide-y divide-ink/10">
+                    {datos.p.pasos.map((l) => (
+                      <li class="flex items-start justify-between gap-4 py-3">
+                        <div>
+                          <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                          <p class="text-sm text-ink/70">{l.proximo_paso ?? 'Sin descripción'}</p>
+                        </div>
+                        <span class:list={['admin-tag shrink-0', l.fecha < hoy && '!bg-[#fbeae3] !text-[#8a3321]']}>
+                          {l.fecha < hoy ? `Vencido ${fechaCorta(l.fecha)}` : 'Hoy'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {datos.p.sinMarcar.length > 0 && (
+                <section id="sin-marcar" class="scroll-mt-6 rounded-2xl bg-white p-6">
+                  <h3 class="eyebrow text-ink/50">Sesiones pasadas sin marcar como realizadas · {datos.p.sinMarcar.length}</h3>
+                  <ul class="mt-4 divide-y divide-ink/10">
+                    {datos.p.sinMarcar.map((l) => (
+                      <li class="flex items-center justify-between gap-4 py-3">
+                        <div>
+                          <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                          <p class="text-sm text-ink/60 first-letter:uppercase">{dia(l.fecha_sesion)} · {hora(l.fecha_sesion)}</p>
+                        </div>
+                        <form method="post" action={`/admin/leads/${l.id}`}>
+                          <input type="hidden" name="csrf" value={csrf} />
+                          <input type="hidden" name="accion" value="estado" />
+                          <input type="hidden" name="estado" value="sesion_realizada" />
+                          <button class="btn btn-outline-dark !px-4 !py-1.5 !text-xs">Marcar realizada</button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {datos.p.nuevosWeb.length > 0 && (
+                <section id="nuevos-web" class="scroll-mt-6 rounded-2xl bg-white p-6">
+                  <h3 class="eyebrow text-ink/50">Nuevos del formulario web, sin tocar · {datos.p.nuevosWeb.length}</h3>
+                  <ul class="mt-4 divide-y divide-ink/10">
+                    {datos.p.nuevosWeb.map((l) => (
+                      <li class="flex items-center justify-between gap-4 py-3">
+                        <div>
+                          <a href={`/admin/leads/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                          <p class="text-sm text-ink/60">{[l.nombre, l.resolver].filter(Boolean).join(' · ')}</p>
+                        </div>
+                        <span class="admin-tag shrink-0">{haceDias(l.created_at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {datos.p.enArmado.length > 0 && (
+                <section id="en-armado" class="scroll-mt-6 rounded-2xl bg-white p-6">
+                  <h3 class="eyebrow text-ink/50">Landings en armado · {datos.p.enArmado.length}</h3>
+                  <ul class="mt-4 divide-y divide-ink/10">
+                    {datos.p.enArmado.map((l) => {
+                      const lista = l.al_entregar > 0 && l.al_entregar_sin_aprobar === 0;
+                      return (
+                        <li class="flex items-center justify-between gap-4 py-3">
+                          <div class="min-w-0 flex-1">
+                            <a href={`/admin/landings/${l.id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                            <div class="mt-1.5 flex items-center gap-2" data-tip={`${l.aprobadas} de ${l.etapas} etapas aprobadas`} tabindex="0">
+                              <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/10">
+                                <span class="block h-full rounded-full bg-azul" style={`width:${l.etapas ? (l.aprobadas / l.etapas) * 100 : 0}%`} />
+                              </span>
+                              <span class="font-display text-xs tabular-nums text-ink/55">{l.aprobadas}/{l.etapas}</span>
+                            </div>
+                          </div>
+                          <span class:list={['admin-tag shrink-0', lista && '!bg-azul !text-white']}>{lista ? 'Lista para entregar' : 'Por aprobar'}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {datos.p.sinVisitas.length > 0 && (
+                <section id="sin-visitas" class="scroll-mt-6 rounded-2xl bg-white p-6">
+                  <h3 class="eyebrow text-ink/50">Landings entregadas sin visitas · {datos.p.sinVisitas.length}</h3>
+                  <ul class="mt-4 divide-y divide-ink/10">
+                    {datos.p.sinVisitas.map((l) => (
+                      <li class="flex items-center justify-between gap-4 py-3">
+                        <div>
+                          <a href={`/admin/leads/${l.lead_id}`} class="font-semibold text-azul hover:underline">{l.empresa}</a>
+                          <p class="text-sm text-ink/60">Entregada {haceDias(l.entregada_el)}</p>
+                        </div>
+                        <form method="post">
+                          <input type="hidden" name="csrf" value={csrf} />
+                          <input type="hidden" name="landing_id" value={l.id} />
+                          <button name="accion" value="descartar_aviso" class="btn btn-outline-dark !px-4 !py-1.5 !text-xs">Descartar aviso</button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
+          </>
         )}
-      </div>
+      </>
     )
   }
-
-  <!-- Resumen -->
-  <h2 class="mt-12 text-lg font-semibold">Resumen</h2>
-  <div class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-ink/10 bg-ink/10 md:grid-cols-4">
-    <div class="bg-white p-5"><p class="eyebrow text-ink/50">Leads</p><p class="mt-1 font-display text-2xl font-extrabold text-azul">{resumen.total}</p></div>
-    <div class="bg-white p-5"><p class="eyebrow text-ink/50">Nuevos, 7 días</p><p class="mt-1 font-display text-2xl font-extrabold text-azul">{resumen.semana}</p></div>
-    <div class="bg-white p-5"><p class="eyebrow text-ink/50">Nuevos, 30 días</p><p class="mt-1 font-display text-2xl font-extrabold text-azul">{resumen.mes}</p></div>
-    <div class="bg-white p-5">
-      <p class="eyebrow text-ink/50">Fallos del aviso por mail</p>
-      <p class:list={['mt-1 font-display text-2xl font-extrabold', resumen.fallos > 0 ? 'text-[#a8412b]' : 'text-azul']}>{resumen.fallos}</p>
-    </div>
-  </div>
-
-  <div class="mt-6 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-    <div class="admin-card">
-      <p class="eyebrow text-ink/50">Leads nuevos por día, últimos 14 días</p>
-      <div class="mt-5 flex h-24 items-end gap-2">
-        {
-          dias.map((d) => (
-            <div class="flex min-w-0 flex-1 flex-col items-center gap-2" title={`${d.label}: ${d.n}`}>
-              <div class="w-full rounded-t bg-azul" style={`height:${Math.max(4, (d.n / maxDia) * 72)}px`} />
-              <span class="hidden font-mono text-[10px] text-ink/40 sm:block">{d.label}</span>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-    <div class="admin-card">
-      <p class="eyebrow text-ink/50">Qué quieren resolver</p>
-      <div class="mt-5 space-y-3">
-        {resumen.porResolver.length === 0 && <p class="text-sm text-ink/50">Todavía no hay datos.</p>}
-        {
-          resumen.porResolver.map((r) => (
-            <div>
-              <div class="flex justify-between text-sm"><span>{r.resolver}</span><span class="font-semibold">{r.n}</span></div>
-              <div class="mt-1 h-2 rounded-full bg-ink/10">
-                <div class="h-2 rounded-full bg-celeste" style={`width:${(r.n / maxResolver) * 100}%`} />
-              </div>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-  </div>
 </AdminLayout>

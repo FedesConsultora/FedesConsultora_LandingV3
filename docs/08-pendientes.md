@@ -272,6 +272,15 @@ El plan técnico se presentó y quedó en pausa a pedido del cliente, para mejor
 - **Corregido:** un doble clic en «Crear landing» creaba dos landings (pasó en `desarrollo`: el lead ficticio «Logística Ejemplo SA» quedó con dos borradores, que se pueden borrar). Ahora los botones se deshabilitan mientras se envía el formulario, y la base garantiza un solo borrador por lead aun con pedidos simultáneos.
 - **Textos nuevos del panel** (títulos de pasos, próximas acciones, secciones del inicio): texto propio, a validar.
 
+## Registro de la construcción (rediseño visual del panel, 29/09)
+
+- **Referencia:** captura de un dashboard enviada por el cliente. Se tomó la estructura (menú lateral, indicadores en tarjetas con color, gráficos en tarjetas blancas, agenda al costado), no sus colores ni textos.
+- **Paleta:** solo los colores de marca (`#44718D`, `#71A0C0`, `#1D1D1B`) y variantes claras. El turquesa provisorio del sitio no se usa en el panel hasta que se confirme.
+- **Validación de color de los gráficos** (script de la guía de visualización de datos): azul y celeste se distinguen bien entre sí, también con daltonismo (diferencia 15,6; objetivo 8). Pero los colores de marca son de baja saturación, el negro queda fuera de la franja de luminosidad recomendada para series y el celeste tiene poco contraste con el blanco (2,7:1). Por eso ningún gráfico depende solo del color: leyenda, valores al pasar el mouse o con el teclado, separación de 2 px entre segmentos y una tabla con los datos debajo de cada gráfico. Si se confirma un color de acento, revisar la paleta de los gráficos.
+- **Inicio:** 4 indicadores (leads activos, sesiones de los próximos 7 días, landings entregadas y de sesión a cliente en los últimos 90 días), embudo del pipeline con el % de paso entre etapas, leads nuevos por semana según fuente (web, LinkedIn, otras), próximas sesiones y contadores de pendientes con el detalle debajo.
+- **Cómo se calcula el embudo:** leads creados en los últimos 90 días; cada uno cuenta hasta la etapa más avanzada a la que llegó según su historial (un lead perdido después de la sesión cuenta como que llegó a la sesión). «Landing entregada» cuenta los leads con una landing entregada. Validar estas definiciones.
+- **Menú lateral** en todas las pantallas del panel. En celulares se pliega bajo el botón «Menú» (funciona sin JavaScript). No se sumó «Landings» ni «Mails» al menú: no hay pantalla de listado de landings y los mails son la fase 2.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.

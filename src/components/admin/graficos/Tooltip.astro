@@ -1,0 +1,33 @@
+---
+// Globo con el valor de una marca del gráfico, al pasar el mouse o al enfocarla con el teclado.
+// Complementa, no reemplaza: cada gráfico tiene además su tabla con los datos.
+// Uso: cualquier elemento con data-tip="texto" (y tabindex="0" para el teclado).
+---
+
+<div id="tooltip-grafico" role="tooltip" class="pointer-events-none fixed z-50 hidden max-w-[240px] whitespace-pre-line rounded-lg bg-ink px-3 py-2 font-display text-xs leading-relaxed text-white shadow-lg"></div>
+
+<script>
+  const globo = document.getElementById('tooltip-grafico')!;
+  function mostrar(el: HTMLElement) {
+    globo.textContent = el.dataset.tip ?? '';
+    globo.classList.remove('hidden');
+    const r = el.getBoundingClientRect();
+    const g = globo.getBoundingClientRect();
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - g.width / 2), window.innerWidth - g.width - 8);
+    const arriba = r.top - g.height - 8;
+    globo.style.left = `${x}px`;
+    globo.style.top = `${arriba > 8 ? arriba : r.bottom + 8}px`;
+  }
+  const ocultar = () => globo.classList.add('hidden');
+  const objetivo = (ev: Event) => (ev.target as HTMLElement).closest?.<HTMLElement>('[data-tip]');
+  document.addEventListener('mouseover', (ev) => {
+    const el = objetivo(ev);
+    el ? mostrar(el) : ocultar();
+  });
+  document.addEventListener('focusin', (ev) => {
+    const el = objetivo(ev);
+    el ? mostrar(el) : ocultar();
+  });
+  document.addEventListener('focusout', ocultar);
+  window.addEventListener('scroll', ocultar, { passive: true });
+</script>

@@ -1,0 +1,91 @@
+---
+// Leads nuevos por semana, apilados por fuente. Series en orden fijo (el color sigue a la serie):
+// Web (azul), LinkedIn (celeste), Otras (negro). Colores de marca: como son de baja saturación,
+// la identidad no depende solo del color (leyenda, globo con el detalle y tabla).
+import { etiquetaSemana, maximoEje } from '../../../lib/graficos';
+
+type Semana = { semana: string; valores: Record<string, number>; total: number };
+interface Props {
+  semanas: Semana[];
+  series: readonly { clave: string; etiqueta: string }[];
+}
+const { semanas, series } = Astro.props;
+const COLORES = ['#44718D', '#71A0C0', '#1D1D1B'];
+const maximo = maximoEje(Math.max(0, ...semanas.map((s) => s.total)));
+const ALTO = 160; // alto del área de barras, en píxeles (el eje X va aparte, debajo)
+const total = semanas.reduce((a, s) => a + s.total, 0);
+---
+
+<section class="rounded-2xl bg-white p-6" aria-labelledby="titulo-semanas">
+  <div class="flex flex-wrap items-baseline justify-between gap-3">
+    <div>
+      <h2 id="titulo-semanas" class="font-display text-base font-semibold text-ink">Leads nuevos por semana</h2>
+      <p class="font-display text-xs text-ink/50">Últimas {semanas.length} semanas · {total} en total</p>
+    </div>
+    <ul class="flex flex-wrap gap-4 font-display text-xs text-ink/70" aria-label="Leyenda">
+      {series.map((s, i) => (
+        <li class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style={`background:${COLORES[i]}`} />{s.etiqueta}</li>
+      ))}
+    </ul>
+  </div>
+
+  <div class="mt-6 grid grid-cols-[24px_minmax(0,1fr)] gap-x-2">
+    <!-- Eje Y: tres marcas -->
+    <div class="relative font-display text-[11px] tabular-nums text-ink/40" style={`height:${ALTO}px`}>
+      {[maximo, maximo / 2, 0].map((v, i) => (
+        <span class="absolute right-0 -translate-y-1/2" style={`top:${i * 50}%`}>{Number.isInteger(v) ? v : ''}</span>
+      ))}
+    </div>
+    <div class="relative" style={`height:${ALTO}px`}>
+      {[0, 50, 100].map((t) => <div class="absolute inset-x-0 border-t border-ink/10" style={`top:${t}%`} />)}
+      <div class="absolute inset-0 flex items-end justify-around gap-1">
+        {semanas.map((s) => (
+          <div
+            class="flex h-full w-full max-w-[24px] flex-col-reverse gap-[2px] rounded-t outline-none focus-visible:ring-2 focus-visible:ring-azul/50"
+            tabindex="0"
+            data-tip={`Semana del ${etiquetaSemana(s.semana)}: ${s.total} ${s.total === 1 ? 'lead' : 'leads'}${series.map((x) => `\n${x.etiqueta}: ${s.valores[x.clave]}`).join('')}`}
+          >
+            {s.total === 0 && <span class="block h-[2px] w-full shrink-0 rounded-sm bg-ink/15" />}
+            {series.map((x, i) => {
+              const n = s.valores[x.clave];
+              if (!n) return null;
+              // El segmento de arriba lleva el extremo redondeado; la base queda recta.
+              const arriba = series.slice(i + 1).every((y) => !s.valores[y.clave]);
+              return <span class:list={['block w-full shrink-0', arriba && 'rounded-t']} style={`height:${Math.max(2, (n / maximo) * ALTO - 2)}px;background:${COLORES[i]}`} />;
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+    <span></span>
+    <div class="mt-2 flex justify-around gap-1 font-display text-[11px] text-ink/45">
+      {semanas.map((s, i) => (
+        <span class="w-full max-w-[24px] text-center">{(semanas.length - 1 - i) % 2 === 0 ? etiquetaSemana(s.semana) : ''}</span>
+      ))}
+    </div>
+  </div>
+
+  <details class="mt-5 font-display text-xs text-ink/60">
+    <summary class="cursor-pointer select-none hover:text-ink">Ver como tabla</summary>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead class="text-xs text-ink/50">
+          <tr>
+            <th class="py-1 font-semibold">Semana</th>
+            {series.map((x) => <th class="py-1 text-right font-semibold">{x.etiqueta}</th>)}
+            <th class="py-1 text-right font-semibold">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {semanas.map((s) => (
+            <tr class="border-t border-ink/10">
+              <td class="py-1.5 text-ink">{etiquetaSemana(s.semana)}</td>
+              {series.map((x) => <td class="py-1.5 text-right tabular-nums text-ink/70">{s.valores[x.clave]}</td>)}
+              <td class="py-1.5 text-right tabular-nums text-ink">{s.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
