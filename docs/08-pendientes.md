@@ -259,6 +259,10 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 7. Prueba rápida en producción: login, envío del formulario de Contacto con un email de prueba, crear y entregar una landing de prueba, abrirla en una ventana privada, y borrarla.
 8. Borrar de Vercel `ADMIN_USER` y `ADMIN_PASSWORD_HASH`, que ya no se usan.
 
+## Fase 2 (mails): en pausa (29/09)
+
+El plan técnico se presentó y quedó en pausa a pedido del cliente, para mejorar antes el flujo del panel. Al retomarla, faltan: aprobación del plan, textos de las plantillas, si se reenvía copia de las respuestas a `info@`, criterio para adjuntos, cuenta y clave de Resend, acceso al DNS de `fedesconsultora.com` y un entorno publicado para probar los webhooks.
+
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
 Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.
