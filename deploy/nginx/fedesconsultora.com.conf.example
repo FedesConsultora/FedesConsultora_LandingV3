@@ -37,6 +37,9 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/fedesconsultora.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/fedesconsultora.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header Content-Security-Policy "upgrade-insecure-requests" always;
     return 301 https://fedesconsultora.com$request_uri;
 }
 
@@ -46,11 +49,14 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/fedesconsultora.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/fedesconsultora.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
 
     client_max_body_size 256k;
     client_body_timeout 15s;
     send_timeout 30s;
 
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header Content-Security-Policy "upgrade-insecure-requests" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy $fedes_referrer_policy always;
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -80,6 +86,8 @@ server {
     # Mantener el cache corto de marca e iconos que existía en el vhost.
     location ~* ^/(favicon\.svg|favicon\.ico|apple-touch-icon\.png|logo-512\.png|fedes-logo-blanco\.svg|og-fedes\.jpg)$ {
         proxy_hide_header Cache-Control;
+        add_header Strict-Transport-Security "max-age=86400" always;
+        add_header Content-Security-Policy "upgrade-insecure-requests" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy $fedes_referrer_policy always;
         add_header X-Frame-Options "SAMEORIGIN" always;
@@ -103,6 +111,8 @@ server {
         proxy_cache_bypass 1;
         proxy_no_cache 1;
         proxy_hide_header Cache-Control;
+        add_header Strict-Transport-Security "max-age=86400" always;
+        add_header Content-Security-Policy "upgrade-insecure-requests" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy $fedes_referrer_policy always;
         add_header X-Frame-Options "SAMEORIGIN" always;
