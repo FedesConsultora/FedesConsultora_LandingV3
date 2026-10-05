@@ -17,7 +17,7 @@ try {
       empresa: 'Synthetic test',
       email,
       tamano: 'Hasta 10 empleados',
-      resolver: 'Verificación técnica',
+      resolver: 'Tecnología',
       privacidad: 'on',
     }),
   });
