@@ -63,14 +63,12 @@ export const POST: APIRoute = async ({ request }) => {
       let cuerpo = '';
       let messageId: string | null = d.message_id ?? null;
       const clave = runtimeEnv('RESEND_API_KEY');
-      let resend: ReturnType<typeof crearClienteResend> | null = null;
-      if (clave) {
-        resend = crearClienteResend(clave, runtimeEnv('RESEND_TEST_BASE_URL'));
-        const { data, error } = await resend.emails.receiving.get(emailId);
-        if (error || !data) throw new Error('provider');
-        cuerpo = data.text ?? '';
-        messageId = data.message_id ?? messageId;
-      }
+      if (!clave) throw new Error('provider');
+      const resend = crearClienteResend(clave, runtimeEnv('RESEND_TEST_BASE_URL'));
+      const { data, error } = await resend.emails.receiving.get(emailId);
+      if (error || !data) throw new Error('provider');
+      cuerpo = data.text ?? '';
+      messageId = data.message_id ?? messageId;
       // Persistir y deduplicar el recibido antes de cualquier efecto externo.
       await registrarRecibido({
         resendId: emailId,
