@@ -140,12 +140,41 @@ export async function activarLanding(id: number, adminId: number) {
   if (etapas.length === 0) throw new LandingError('Marcá al menos una etapa para desbloquear al entregar.');
   const sinAprobar = etapas.filter((e) => !e.aprobada).map((e) => `«${e.titulo}»`);
   if (sinAprobar.length) throw new LandingError(`Antes de entregar, aprobá: ${sinAprobar.join(', ')}.`);
-  const [, desbloqueadas] = await db().transaction([
-    db()`UPDATE landings SET estado = 'activa', entregada_el = COALESCE(entregada_el, now()), actualizada_el = now() WHERE id = ${id}`,
-    db()`UPDATE etapas SET estado = 'desbloqueada', desbloqueada_el = COALESCE(desbloqueada_el, now())
-         WHERE landing_id = ${id} AND modo_desbloqueo = 'al_entregar' AND aprobada RETURNING id`,
-    auditar(adminId, 'activar', 'landing', id),
-  ]);
+
+  // Los chequeos anteriores dan mensajes útiles; esta sentencia vuelve a comprobarlos de forma
+  // atómica para que una edición/desaprobación concurrente no pueda colarse entre validar y activar.
+  const desbloqueadas = await db()`
+    WITH activada AS (
+      UPDATE landings l
+      SET estado = 'activa', entregada_el = COALESCE(entregada_el, now()), actualizada_el = now()
+      WHERE l.id = ${id}
+        AND l.estado = 'borrador'
+        AND EXISTS (
+          SELECT 1 FROM etapas e
+          WHERE e.landing_id = l.id AND e.modo_desbloqueo = 'al_entregar'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM etapas e
+          WHERE e.landing_id = l.id AND e.modo_desbloqueo = 'al_entregar' AND NOT e.aprobada
+        )
+      RETURNING l.id
+    ),
+    etapas_visibles AS (
+      UPDATE etapas e
+      SET estado = 'desbloqueada', desbloqueada_el = COALESCE(e.desbloqueada_el, now())
+      FROM activada a
+      WHERE e.landing_id = a.id AND e.modo_desbloqueo = 'al_entregar' AND e.aprobada
+      RETURNING e.id, e.landing_id
+    ),
+    auditada AS (
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id)
+      SELECT ${adminId}, 'activar', 'landing', id FROM activada
+    )
+    SELECT id FROM etapas_visibles
+  `;
+  if (desbloqueadas.length === 0) {
+    throw new LandingError('La landing cambió mientras la estabas entregando. Recargá la página y volvé a intentar.');
+  }
   // Mail automático de entrega (si corresponde). No bloquea la entrega: devuelve el resultado.
   return enviarPorDesbloqueo(id, desbloqueadas.map((e) => e.id as number), true, adminId);
 }
@@ -190,13 +219,19 @@ async function editarEtapa(
   if (e.version !== version) throw new LandingError('Otra persona modificó esta etapa. Recargá la página para ver los cambios.');
   const { titulo = e.titulo, contenido = e.contenido } = cambio(e);
   const rows = await db()`
-    UPDATE etapas SET titulo = ${titulo}, contenido = ${JSON.stringify(contenido)}::jsonb,
-      aprobada = false, aprobada_por = NULL, aprobada_el = NULL, version = version + 1, actualizada_el = now()
-    WHERE id = ${id} AND version = ${version} AND estado = 'bloqueada'
-    RETURNING id
+    WITH cambio AS (
+      UPDATE etapas SET titulo = ${titulo}, contenido = ${JSON.stringify(contenido)}::jsonb,
+        aprobada = false, aprobada_por = NULL, aprobada_el = NULL, version = version + 1, actualizada_el = now()
+      WHERE id = ${id} AND version = ${version} AND estado = 'bloqueada'
+      RETURNING id, landing_id
+    ),
+    auditada AS (
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'editar', 'etapa', id, jsonb_build_object('landing_id', landing_id) FROM cambio
+    )
+    SELECT id FROM cambio
   `;
   if (!rows[0]) throw new LandingError('Otra persona modificó esta etapa. Recargá la página para ver los cambios.');
-  await auditar(adminId, 'editar', 'etapa', id, { landing_id: e.landing_id });
 }
 
 export const guardarTituloEtapa = (id: number, version: number, titulo: string, adminId: number) => {
@@ -229,30 +264,58 @@ export async function aprobarEtapa(id: number, adminId: number) {
   const e = await etapa(id);
   const problemas = problemasParaAprobar(e.titulo, e.contenido);
   if (problemas.length) throw new LandingError(`No se puede aprobar «${e.titulo}»: ${problemas.join(', ')}.`);
-  await db().transaction([
-    db()`UPDATE etapas SET aprobada = true, aprobada_por = ${adminId}, aprobada_el = now() WHERE id = ${id}`,
-    auditar(adminId, 'aprobar', 'etapa', id, { landing_id: e.landing_id }),
-  ]);
+  const rows = await db()`
+    WITH aprobada AS (
+      UPDATE etapas
+      SET aprobada = true, aprobada_por = ${adminId}, aprobada_el = now()
+      WHERE id = ${id} AND version = ${e.version} AND estado = 'bloqueada'
+      RETURNING id, landing_id
+    ),
+    auditada AS (
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'aprobar', 'etapa', id, jsonb_build_object('landing_id', landing_id) FROM aprobada
+    )
+    SELECT id FROM aprobada
+  `;
+  if (!rows[0]) {
+    throw new LandingError('La etapa cambió mientras la aprobabas. Recargá la página y revisá el contenido nuevamente.');
+  }
 }
 
 export async function quitarAprobacion(id: number, adminId: number) {
-  const e = await etapa(id);
-  if (e.estado === 'desbloqueada') throw new LandingError('Primero bloqueá la etapa.');
-  await db().transaction([
-    db()`UPDATE etapas SET aprobada = false, aprobada_por = NULL, aprobada_el = NULL WHERE id = ${id}`,
-    auditar(adminId, 'quitar_aprobacion', 'etapa', id, { landing_id: e.landing_id }),
-  ]);
+  const rows = await db()`
+    WITH cambio AS (
+      UPDATE etapas
+      SET aprobada = false, aprobada_por = NULL, aprobada_el = NULL
+      WHERE id = ${id} AND estado = 'bloqueada'
+      RETURNING id, landing_id
+    ),
+    auditada AS (
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'quitar_aprobacion', 'etapa', id, jsonb_build_object('landing_id', landing_id) FROM cambio
+    )
+    SELECT id FROM cambio
+  `;
+  if (!rows[0]) throw new LandingError('Primero bloqueá la etapa o recargá la página.');
 }
 
 export async function desbloquearEtapa(id: number, adminId: number) {
-  const e = await etapa(id);
-  if (!e.aprobada) throw new LandingError('Solo se puede desbloquear una etapa aprobada.');
-  await db().transaction([
-    db()`UPDATE etapas SET estado = 'desbloqueada', desbloqueada_el = now() WHERE id = ${id} AND aprobada`,
-    auditar(adminId, 'desbloquear', 'etapa', id, { landing_id: e.landing_id }),
-  ]);
+  const [cambio] = await db()`
+    WITH visible AS (
+      UPDATE etapas
+      SET estado = 'desbloqueada', desbloqueada_el = COALESCE(desbloqueada_el, now())
+      WHERE id = ${id} AND aprobada AND estado = 'bloqueada'
+      RETURNING id, landing_id
+    ),
+    auditada AS (
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'desbloquear', 'etapa', id, jsonb_build_object('landing_id', landing_id) FROM visible
+    )
+    SELECT id, landing_id FROM visible
+  `;
+  if (!cambio) throw new LandingError('La etapa no está aprobada, ya fue desbloqueada o cambió. Recargá la página.');
   // Mail automático de nueva etapa (si la landing ya está entregada y la etapa lo tiene activo).
-  return enviarPorDesbloqueo(e.landing_id, [id], false, adminId);
+  return enviarPorDesbloqueo(cambio.landing_id as number, [cambio.id as number], false, adminId);
 }
 
 export async function guardarEnvioMailEtapa(id: number, enviar: boolean, adminId: number) {
@@ -281,13 +344,27 @@ export async function guardarModoEtapa(id: number, modo: string, adminId: number
 }
 
 export async function agregarEtapa(landingId: number, adminId: number) {
-  const [nueva] = await db()`
-    INSERT INTO etapas (landing_id, orden, titulo)
-    SELECT ${landingId}, COALESCE(max(orden), 0) + 1, 'Nueva etapa' FROM etapas WHERE landing_id = ${landingId}
-    RETURNING id
-  `;
-  await auditar(adminId, 'crear', 'etapa', nueva.id, { landing_id: landingId });
-  return nueva.id as number;
+  const BLOQUEO_AGREGAR_ETAPA = 1002;
+  const [, nueva, auditada] = await db().transaction([
+    db()`SELECT pg_advisory_xact_lock(${BLOQUEO_AGREGAR_ETAPA}, ${landingId})`,
+    db()`
+      INSERT INTO etapas (landing_id, orden, titulo)
+      SELECT ${landingId}, COALESCE(max(orden), 0) + 1, 'Nueva etapa'
+      FROM etapas
+      WHERE landing_id = ${landingId}
+      HAVING EXISTS (SELECT 1 FROM landings WHERE id = ${landingId})
+      RETURNING id
+    `,
+    db()`
+      INSERT INTO auditoria (admin_id, accion, entidad, entidad_id, detalle)
+      SELECT ${adminId}, 'crear', 'etapa', currval(pg_get_serial_sequence('etapas', 'id')),
+             jsonb_build_object('landing_id', ${landingId}::int)
+      WHERE currval(pg_get_serial_sequence('etapas', 'id')) IS NOT NULL
+      RETURNING id
+    `,
+  ]);
+  if (!nueva[0] || !auditada[0]) throw new LandingError('La landing no existe o cambió. Recargá la página.');
+  return nueva[0].id as number;
 }
 
 export async function eliminarEtapa(id: number, adminId: number) {
