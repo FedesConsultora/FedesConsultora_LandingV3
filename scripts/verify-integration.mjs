@@ -170,6 +170,7 @@ try {
     ...process.env,
     PROXY_NODE_TEST_BASE: base,
   });
+  correr(process.execPath, ['scripts/verificar-webhook-sin-api-key.mjs']);
 
   // El Node adapter debe usar la IP reenviada por el proxy sólo cuando el host está validado.
   // Si esto falla, todos los visitantes detrás de Nginx compartirían el mismo rate-limit.
