@@ -71,6 +71,36 @@ try {
     body: `x=${'a'.repeat(300 * 1024)}`,
   });
   check('contacto rechaza cuerpos mayores a 256 KiB', oversized.status === 413, `HTTP ${oversized.status}`);
+
+  const baseForm = {
+    nombre: 'Release Test',
+    empresa: 'Synthetic SA',
+    email: 'release@example.test',
+    tamano: 'Hasta 10 empleados',
+    resolver: 'Tecnología',
+  };
+  const invalidPrivacy = await fetch(`${base}/api/contacto`, {
+    method: 'POST',
+    headers: { Origin: origin },
+    body: new URLSearchParams({ ...baseForm, privacidad: 'off' }),
+  });
+  check('contacto exige consentimiento exacto', invalidPrivacy.status === 400, `HTTP ${invalidPrivacy.status}`);
+
+  const invalidChoice = await fetch(`${base}/api/contacto`, {
+    method: 'POST',
+    headers: { Origin: origin },
+    body: new URLSearchParams({ ...baseForm, resolver: 'Opción inventada', privacidad: 'on' }),
+  });
+  check('contacto rechaza opciones fuera de lista', invalidChoice.status === 400, `HTTP ${invalidChoice.status}`);
+
+  const duplicateFields = new URLSearchParams({ ...baseForm, privacidad: 'on' });
+  duplicateFields.append('email', 'otro@example.test');
+  const duplicated = await fetch(`${base}/api/contacto`, {
+    method: 'POST',
+    headers: { Origin: origin },
+    body: duplicateFields,
+  });
+  check('contacto rechaza campos controlados repetidos', duplicated.status === 400, `HTTP ${duplicated.status}`);
 } catch {
   check('validaciones de contacto', false, 'sin respuesta');
 }
