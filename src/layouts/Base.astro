@@ -10,7 +10,7 @@ import { SITE_URL, organization, website, breadcrumb, graph } from '../lib/seo';
 interface Props {
   title: string;
   description: string;
-  // Vista previa en Vercel: no indexar hasta el lanzamiento (PUBLIC_INDEXABLE=true).
+  // Entornos de vista previa: no indexar hasta aprobar el lanzamiento (PUBLIC_INDEXABLE=true).
   noindex?: boolean;
   // Nombre de la página para las migas de pan (BreadcrumbList). Sin él, no se agrega.
   crumb?: string;

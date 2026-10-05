@@ -1,5 +1,7 @@
 # 08 · Pendientes antes de publicar
 
+> **Nota de vigencia:** los registros anteriores documentan decisiones y despliegues históricos de V3 sobre Vercel. La arquitectura de producción vigente es Astro Node standalone en Docker, detrás del proxy Nginx central; Neon y Resend siguen externos. Los procedimientos actuales están en `docs/DEPLOY_VPS.md` y `docs/OPERATIONS.md`. Las migraciones `001–007` están aplicadas en producción y no se editan.
+
 Ninguno bloquea empezar a construir: los textos están escritos para no depender de estos datos. Al llegar a una sección con un pendiente, dejá un marcador visible y no inventes el dato.
 
 ## Contenido

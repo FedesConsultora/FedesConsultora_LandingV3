@@ -10,14 +10,14 @@ El **portal de leads** acompaña ese objetivo: permite gestionar y monitorear a 
 
 ## Cómo trabajar
 
-1. Antes de escribir código, leé todo `/docs` (incluido `docs/09-portal-leads.md`) y `/referencias/referencias.md`.
-2. Proponé el stack técnico y un plan de trabajo, y esperá confirmación antes de construir. El stack no está definido. **Al proponerlo, contemplá lo que exige el portal:** login de administrador, base de datos, tokens de acceso por landing, envío de mails y protección de datos personales. Si el stack que sugerís es estático, indicá qué habría que sumar para el portal.
-3. Construí el sitio público página por página, en este orden: Inicio, Consultoría, Casos, Contacto. Nosotros es una página provisional.
-4. El portal de leads se construye por **fases** (ver `docs/09-portal-leads.md`), una por vez y con sus criterios de aceptación. El orden respecto de las páginas públicas lo definimos juntos una vez confirmado el stack.
-5. Los textos del sitio público salen literalmente de los documentos. Si necesitás un texto que no existe, no lo inventes: dejá un marcador visible `[PENDIENTE]` y avisame.
-6. Lo marcado `[PENDIENTE]` o `[CONFIRMAR]` en los docs no se publica como dato definitivo. Se lista en `docs/08-pendientes.md`. Las decisiones abiertas del portal (sección 10 de `docs/09-portal-leads.md`) también van ahí.
-7. El boceto de Figma y la web actual (fedesconsultora.com) son solo referencia. No son propuestas finales y no hay que copiarlos.
-8. Las referencias de otras webs (`/referencias`) son inspiración de estructura, ritmo y estilo. No se copian textos, imágenes ni código.
+1. Antes de cambiar contenido, consultá `/docs` (incluido `docs/09-portal-leads.md`) y `/referencias/referencias.md`.
+2. Conservá Astro, la identidad visual V3 y el backend/portal existentes. No rehagas el producto ni migres de stack sin evidencia técnica concreta.
+3. El sitio público se prerenderiza por defecto. Las rutas dinámicas existentes se mantienen on-demand con `prerender = false`; los secretos de servidor se leen en runtime.
+4. Las migraciones `001–007` ya se aplicaron a producción: nunca editarlas. Toda evolución de schema va en una migración nueva.
+5. Los textos del sitio público salen literalmente de los documentos. Si falta un texto, no lo inventes: dejá un marcador `[PENDIENTE]` y actualizá `docs/08-pendientes.md`.
+6. Lo marcado `[PENDIENTE]` o `[CONFIRMAR]` no se publica como dato definitivo. Las decisiones abiertas del portal están en `docs/09-portal-leads.md`.
+7. El VPS usa un Nginx compartido y `fedes-net`; no publiques puertos de la app ni instales otro proxy, Certbot o PostgreSQL.
+8. V1 es referencia histórica. No copies Apps Script ni restaures contenido/módulos antiguos sin una decisión vigente de producto.
 
 ## Reglas que siempre se cumplen
 
@@ -74,6 +74,8 @@ referencias/
   capturas/                        capturas de pantalla de las referencias
 assets/                            logos, fotos y tipografías (a completar)
 ```
+
+La arquitectura y operación de producción están en `docs/ARCHITECTURE.md`, `docs/DEPLOY_VPS.md`, `docs/OPERATIONS.md` y `docs/ROLLBACK.md`.
 
 ## Convenciones para el código
 

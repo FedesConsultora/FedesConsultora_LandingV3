@@ -282,8 +282,8 @@ Editables desde el panel, con variables del lead (nombre, empresa, link a la lan
 
 ## 11. Decisiones
 
-### Resueltas (29/09)
-- **Stack:** el actual (Astro en Vercel, Postgres, Resend).
+### Resueltas (29/09; decisiones históricas del inicio de V3)
+- **Stack en esa fecha:** Astro en Vercel, Postgres, Resend. La arquitectura de producción vigente es Astro Node standalone en Docker, Neon PostgreSQL y Resend; ver `docs/ARCHITECTURE.md`.
 - **Proveedor de mails:** Resend. Remitente `info@fedesconsultora.com`.
 - **Leads:** todos se gestionan en el panel, incluidos los del formulario web.
 - **Entrega de la landing:** solo después de la sesión de diagnóstico. Lo primero que se ve son los resultados y la ruta sugerida; el resto se desbloquea por etapas.

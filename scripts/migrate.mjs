@@ -6,7 +6,7 @@
 //   npm run db:migrate            aplica las pendientes
 //   npm run db:migrate -- --dry-run   solo lista las pendientes, sin escribir nada en la base
 //
-// Requiere POSTGRES_URL (en .env, por ejemplo con `npx vercel env pull .env`).
+// Requiere POSTGRES_URL en el entorno (o en .env para desarrollo local).
 // Regla: una migración ya aplicada no se edita. Cualquier cambio va en un archivo nuevo.
 import { readdirSync, readFileSync } from 'node:fs';
 import { neon } from '@neondatabase/serverless';
@@ -16,7 +16,7 @@ const dryRun = process.argv.includes('--dry-run');
 const dir = new URL('../db/migrations/', import.meta.url);
 
 if (!process.env.POSTGRES_URL) {
-  console.error('Falta POSTGRES_URL. Corré primero: npx vercel env pull .env');
+  console.error('Falta POSTGRES_URL. Cargá la variable del entorno o un .env local seguro.');
   process.exit(1);
 }
 const sql = neon(process.env.POSTGRES_URL);
