@@ -7,7 +7,10 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "start": "node ./dist/server/entry.mjs",
     "build": "astro build",
+    "check": "astro check",
+    "verify": "npm run check && npm test && npm run build",
     "preview": "astro preview",
     "astro": "astro",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
@@ -15,11 +18,14 @@
     "admin:crear": "node --env-file-if-exists=.env scripts/create-admin.mjs",
     "db:seed-demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
     "verificar:fase1": "node --env-file-if-exists=.env scripts/verificar-fase1.mjs",
-    "verificar:fase2": "node --env-file-if-exists=.env scripts/verificar-fase2.mjs"
+    "verificar:fase2": "node --env-file-if-exists=.env scripts/verificar-fase2.mjs",
+    "verify:integration": "node scripts/verify-integration.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:proxy": "node scripts/verificar-proxy.mjs"
   },
   "dependencies": {
+    "@astrojs/node": "^11.1.6",
     "@astrojs/sitemap": "^3.7.4",
-    "@astrojs/vercel": "^11.0.10",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/source-serif-4": "^5.3.0",
     "@neondatabase/serverless": "^1.1.0",
@@ -33,6 +39,8 @@
     "esbuild": true
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3",
     "vitest": "^5.0.2"
   }
 }

@@ -2,8 +2,10 @@
 // Solo node:crypto, sin librerías externas.
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
+import { runtimeEnv } from './runtime-env';
+
 export function sessionSecret() {
-  const s = import.meta.env.SESSION_SECRET;
+  const s = runtimeEnv('SESSION_SECRET');
   if (!s) throw new Error('Falta SESSION_SECRET');
   return s;
 }

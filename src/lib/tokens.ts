@@ -6,10 +6,11 @@
 // - La clave (LANDING_TOKEN_KEY, 32 bytes en base64) vive solo en variables de entorno.
 // El formato está en tokens-core.mjs, compartido con los scripts de Node.
 import { claveDesde, cifrar, descifrar, hashToken, tokenAlAzar } from './tokens-core.mjs';
+import { runtimeEnv } from './runtime-env';
 
 export { hashToken };
 
-const clave = () => claveDesde(import.meta.env.LANDING_TOKEN_KEY);
+const clave = () => claveDesde(runtimeEnv('LANDING_TOKEN_KEY'));
 
 export const cifrarToken = (token: string) => cifrar(token, clave());
 export const descifrarToken = (valor: string) => descifrar(valor, clave());

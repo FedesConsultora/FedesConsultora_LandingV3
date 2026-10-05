@@ -13,21 +13,21 @@ import { mails as M } from '../content/mails';
 import { contactChannels, site } from '../content/site';
 import { revisarTextos } from './bloques';
 import { db } from './db';
+import { runtimeEnv } from './runtime-env';
 import { motivoNoEnviable, renderHtml, renderTexto, tienePendientes, tokenEnvio, usaLanding, variablesDe } from './mails-core';
 import { descifrarToken, rutaLanding } from './tokens';
 
 export class MailError extends Error {}
 
-const ENV = import.meta.env;
-const baseLinks = () => (ENV.MAIL_LINKS_URL || ENV.PUBLIC_SITE_URL || site.url).replace(/\/$/, '');
+const baseLinks = () => (runtimeEnv('MAIL_LINKS_URL') || import.meta.env.PUBLIC_SITE_URL || site.url).replace(/\/$/, '');
 const permitidos = () =>
-  (ENV.MAIL_PERMITIDOS ?? '')
+  (runtimeEnv('MAIL_PERMITIDOS') ?? '')
     .split(',')
     .map((s: string) => s.trim().toLowerCase())
     .filter(Boolean);
 
 export const modoMails = () => ({
-  real: Boolean(ENV.RESEND_API_KEY),
+  real: Boolean(runtimeEnv('RESEND_API_KEY')),
   permitidos: permitidos(),
   pieConPendientes: tienePendientes(M.pieLegal),
 });
@@ -130,8 +130,9 @@ export async function enviarMail(e: Envio): Promise<ResultadoEnvio> {
 
   // ¿Sale de verdad o queda simulado?
   const modo = modoMails();
+  const apiKey = runtimeEnv('RESEND_API_KEY');
   let simulado: string | null = null;
-  if (!modo.real) simulado = 'Simulado: falta la clave de Resend (RESEND_API_KEY).';
+  if (!apiKey) simulado = 'Simulado: falta la clave de Resend (RESEND_API_KEY).';
   else if (tienePendientes(asunto, e.cuerpo, M.pieLegal)) simulado = 'No salió: hay textos [PENDIENTE] (en el mail o en el pie legal).';
   else if (modo.permitidos.length && !modo.permitidos.includes(lead.email.toLowerCase())) {
     simulado = 'Simulado: el destinatario no está en la lista de prueba (MAIL_PERMITIDOS).';
@@ -145,11 +146,11 @@ export async function enviarMail(e: Envio): Promise<ResultadoEnvio> {
     const respuesta = e.respondeA
       ? ((await db()`SELECT message_id FROM mensajes_recibidos WHERE id = ${e.respondeA}`)[0]?.message_id as string | undefined)
       : undefined;
-    const dominioRespuestas = ENV.MAIL_RESPUESTAS_DOMINIO;
+    const dominioRespuestas = runtimeEnv('MAIL_RESPUESTAS_DOMINIO');
     const bajaUrl = marco(envioId).bajaUrl;
     try {
-      const { data, error } = await new Resend(ENV.RESEND_API_KEY).emails.send({
-        from: ENV.MAIL_FROM || M.remitente,
+      const { data, error } = await new Resend(apiKey!).emails.send({
+        from: runtimeEnv('MAIL_FROM') || M.remitente,
         to: lead.email,
         subject: asunto,
         html,

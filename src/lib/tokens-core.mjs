@@ -1,5 +1,5 @@
 // Núcleo criptográfico de los tokens de landing, en JavaScript plano para que lo usen tanto el
-// sitio (src/lib/tokens.ts, con la clave de import.meta.env) como los scripts de Node
+// sitio (src/lib/tokens.ts, con la clave de runtime) como los scripts de Node
 // (scripts/seed-demo.mjs, con la clave de process.env). Un solo lugar define el formato.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 

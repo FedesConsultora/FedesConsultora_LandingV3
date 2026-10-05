@@ -2,6 +2,7 @@
 // Sesión: la cookie lleva un token al azar y la base guarda solo su hash, así cada sesión
 // se puede revocar. Cierre por inactividad y un máximo absoluto de duración.
 import { db } from './db';
+import { runtimeEnv } from './runtime-env';
 import { hmac, randomToken, safeEqual, sha256, verifyPassword } from './seguridad';
 
 export const SESSION_COOKIE = 'fedes_admin_session';
@@ -12,7 +13,7 @@ export const SESSION_MAX_AGE = MAXIMO_HORAS * 60 * 60;
 export type Admin = { id: number; usuario: string; nombre: string; sesionId: number; csrf: string };
 
 export function isAdminConfigured() {
-  return Boolean(import.meta.env.SESSION_SECRET && import.meta.env.POSTGRES_URL);
+  return Boolean(runtimeEnv('SESSION_SECRET') && runtimeEnv('POSTGRES_URL'));
 }
 
 export async function hayAdmins() {
