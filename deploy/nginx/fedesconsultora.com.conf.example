@@ -10,6 +10,9 @@ map $request_uri $fedes_referrer_policy {
     ~^/(?:admin|api/admin)(?:/|$) "no-referrer";
 }
 
+# Límite de abuso del formulario público en memoria del proxy. No usa Neon para absorber spam.
+limit_req_zone $binary_remote_addr zone=fedes_contacto:10m rate=10r/m;
+
 upstream fedesconsultora_web {
     server fedesconsultora-web:4321;
     keepalive 16;
@@ -92,6 +95,15 @@ server {
         add_header Referrer-Policy $fedes_referrer_policy always;
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header Cache-Control "public, max-age=86400, stale-while-revalidate=604800" always;
+        proxy_pass http://fedesconsultora_web;
+    }
+
+    # El formulario público queda limitado por IP antes de llegar a Astro/Neon.
+    location = /api/contacto {
+        limit_req zone=fedes_contacto burst=5 nodelay;
+        limit_req_status 429;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
         proxy_pass http://fedesconsultora_web;
     }
 
