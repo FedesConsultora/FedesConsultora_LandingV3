@@ -48,7 +48,7 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Logo:** cargado el SVG en blanco (menú, pie y favicon con la «D»). Falta la versión en negro por si se necesita sobre fondo blanco, y confirmar el favicon.
 - **Tipografías:** provisorias, Inter (títulos) y Source Serif 4 Light (cuerpo). Reemplazar por Söhne y DJR Banner.
 - **Indexación:** el artefacto de rehearsal lleva `PUBLIC_INDEXABLE=false`. Publicar una imagen nueva con `PUBLIC_INDEXABLE=true` sólo después del cutover, legales y contenido aprobados.
-- **Formulario:** envío por Resend a `info@fedesconsultora.com` (provisorio). Falta crear la cuenta y la API key de Resend, y verificar el dominio de envío.
+- **Formulario:** Neon es la fuente de verdad y el aviso por Resend es secundario. La integración está implementada; para habilitar aviso real falta cargar una clave aprobada y `CONTACT_FROM` de un dominio verificado.
 
 ## Registro de la construcción (Consultoría, Casos, Contacto, Nosotros)
 
@@ -56,9 +56,9 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Metadatos de Nosotros:** propuesta provisoria en `src/content/contacto.ts`. La página lleva `noindex` y queda fuera del menú y del pie.
 - **Cierre de Casos:** el doc no define uno. Se reutiliza el texto de cierre del Inicio.
 - **Rótulos de la escalera de Consultoría** («Ruta 01», «Nivel 1», «Incluye ...», «Entregable») y de Casos («Plazo»): armados a partir del doc, no son literales. Validar.
-- **Marcadores `[PENDIENTE]` visibles en el sitio:** plan mensual (Consultoría), desafío y base de cálculo del «hasta 50%» y dato de leads o ventas del caso Agro (Casos), rangos de tamaño de empresa (selector del formulario), textos de Privacidad y Términos.
+- **Pendientes editoriales no publicados como afirmaciones definitivas:** plan mensual, base del «hasta 50%», dato adicional del caso Agro y otros marcadores siguen en la documentación/capa de contenido, pero no se muestran como `[PENDIENTE]` al visitante. Privacidad y Términos muestran una página neutra de actualización y permanecen `noindex`.
 - **Mensajes técnicos del formulario** («Enviando…» y el mensaje de error) no están en los docs. Validar redacción.
-- **Resend:** falta cuenta, API key y verificar el dominio de envío. Ver `.env.example`. Sin verificar el dominio, Resend solo entrega al mail dueño de la cuenta.
+- **Resend:** integración y webhooks están implementados. `RESEND_API_KEY` se mantiene ausente durante el rehearsal; antes de correo real hay que confirmar dominio/remitentes verificados, webhook productivo, allowlist de smoke y textos legales.
 - **Privacidad y Términos:** son páginas con marcador. Falta migrar el texto vigente.
 
 ## Registro de la construcción (imágenes y animaciones)
