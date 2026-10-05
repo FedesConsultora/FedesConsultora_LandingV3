@@ -1,7 +1,8 @@
 # Especificación — Portal de leads de Fedes Consultora
 
-> **Versión:** 0.2 (29/09). Actualizada con el flujo definido por el cliente: todos los leads pasan por el panel, la landing se entrega después de la sesión y los mails se envían desde el panel (a mano, automáticos al desbloquear una etapa y recordatorios automáticos).
-> **Estado:** pendiente de aprobación. Las decisiones marcadas con ⚠️ PENDIENTE no se implementan hasta resolverse.
+> **Versión:** 0.2 (29/09), mantenida como especificación funcional y roadmap del portal.
+> **Estado de implementación:** Fases 1–2 tienen una base funcional ya construida (pipeline, landings privadas, admins/sesiones revocables, mails, tracking y webhook). Las capacidades descriptas como Fase 3–5 y cualquier punto marcado ⚠️ PENDIENTE siguen siendo roadmap/decisión de producto y no deben inferirse como implementadas.
+> **Arquitectura operativa vigente:** Astro Node standalone en Docker detrás del Nginx central; Neon PostgreSQL y Resend externos. Ver `docs/ARCHITECTURE.md` y `docs/DEPLOY_VPS.md`.
 > **Lectura previa:** `CLAUDE.md` (reglas de marca, tono y contenido).
 
 ---
