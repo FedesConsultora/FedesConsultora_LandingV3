@@ -7,7 +7,7 @@ const response = await fetch(`${base}/api/contacto`, {
     empresa: 'Synthetic test',
     email: 'db-unavailable@example.test',
     tamano: 'Hasta 10 empleados',
-    resolver: 'Verificación técnica',
+    resolver: 'Tecnología',
     privacidad: 'on',
   }),
 });
