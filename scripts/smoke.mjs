@@ -22,13 +22,21 @@ for (const path of [
   }
 }
 
-try {
-  const oldAgency = await fetch(`${base}/agencia`, { redirect: 'manual' });
-  check('/agencia redirige a /consultoria',
-    [301, 302, 307, 308].includes(oldAgency.status) && new URL(oldAgency.headers.get('location') || '/', base).pathname === '/consultoria',
-    `HTTP ${oldAgency.status}`);
-} catch {
-  check('/agencia redirige a /consultoria', false, 'sin respuesta');
+for (const [legacy, target] of [
+  ['/agencia', '/consultoria'],
+  ['/consultora', '/consultoria'],
+  ['/hablemos', '/contacto'],
+  ['/onboarding-empresas', '/onboardings'],
+]) {
+  try {
+    const response = await fetch(`${base}${legacy}`, { redirect: 'manual' });
+    check(`${legacy} redirige a ${target}`,
+      [301, 302, 307, 308].includes(response.status) &&
+      new URL(response.headers.get('location') || '/', base).pathname === target,
+      `HTTP ${response.status}`);
+  } catch {
+    check(`${legacy} redirige a ${target}`, false, 'sin respuesta');
+  }
 }
 
 try {
