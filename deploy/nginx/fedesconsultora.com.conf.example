@@ -1,0 +1,159 @@
+# Plantilla para integrar con /srv/proxy/nginx/conf.d/fedesconsultora.com.conf.
+# Conservar del vhost actual las directivas ssl_certificate, ssl_certificate_key y cualquier
+# include TLS central. La app no instala ni administra certificados.
+
+map $request_uri $fedes_referrer_policy {
+    default "strict-origin-when-cross-origin";
+    ~^/diagnostico(?:/|$) "no-referrer";
+    ~^/m(?:/|$) "no-referrer";
+    ~^/(?:admin|api/admin)(?:/|$) "no-referrer";
+}
+
+upstream fedesconsultora_web {
+    server fedesconsultora-web:4321;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name fedesconsultora.com;
+
+    # Mantener la excepción ACME vigente del proxy central. Este webroot corresponde al mount
+    # existente /srv/www; verificar que coincida con el location ACME ya instalado.
+    location ^~ /.well-known/acme-challenge/ {
+        root /srv/www;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://fedesconsultora.com$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    server_name www.fedesconsultora.com;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /srv/www;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://fedesconsultora.com$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name www.fedesconsultora.com;
+
+    # Copiar aquí las directivas TLS vigentes del certificado central que cubre apex y www.
+    return 301 https://fedesconsultora.com$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name fedesconsultora.com;
+
+    # Copiar aquí ssl_certificate, ssl_certificate_key y los includes TLS del vhost actual.
+
+    client_max_body_size 256k;
+    client_body_timeout 15s;
+    send_timeout 30s;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy $fedes_referrer_policy always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host fedesconsultora.com;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Host fedesconsultora.com;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Referrer-Policy;
+    proxy_hide_header X-Frame-Options;
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 30s;
+    proxy_read_timeout 60s;
+
+    # Astro Node ya entrega assets con hash con max-age=31536000, immutable. Pasar su header.
+    location ^~ /_astro/ {
+        proxy_pass http://fedesconsultora_web;
+    }
+
+    # Preservar la caché de un día para iconos y marca.
+    location ~* ^/(favicon\.svg|favicon\.ico|apple-touch-icon\.png|logo-512\.png|fedes-logo-blanco\.svg|og-fedes\.jpg)$ {
+        proxy_hide_header Cache-Control;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Cache-Control "public, max-age=86400, stale-while-revalidate=604800" always;
+        add_header Referrer-Policy $fedes_referrer_policy always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        proxy_pass http://fedesconsultora_web;
+    }
+
+    location = /diagnostico {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location ^~ /diagnostico/ {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location = /m {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location ^~ /m/ {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location = /admin {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location ^~ /admin/ {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location = /api/admin {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+    location ^~ /api/admin/ {
+        access_log off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_pass http://fedesconsultora_web;
+    }
+
+    # Resend entrega metadata JSON; permite hasta 1 MiB en esta única ruta.
+    location = /api/webhooks/resend {
+        client_max_body_size 1m;
+        proxy_pass http://fedesconsultora_web;
+    }
+
+    location / {
+        proxy_pass http://fedesconsultora_web;
+    }
+}
