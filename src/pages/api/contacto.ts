@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { Resend } from 'resend';
 import { hasDb as dbConfigured } from '../../lib/db';
 import { actualizarEstadoFormulario, registrarFormulario } from '../../lib/leads';
+import { crearClienteResend } from '../../lib/resend-client';
 import { runtimeEnv } from '../../lib/runtime-env';
 
 // Único endpoint del formulario de Contacto. Guarda el lead en la base (fuente de verdad
@@ -119,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
       '</table>';
     const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n');
     try {
-      const { error } = await new Resend(apiKey).emails.send({
+      const { error } = await crearClienteResend(apiKey, runtimeEnv('RESEND_TEST_BASE_URL')).emails.send({
         from,
         to,
         replyTo: fields.email,

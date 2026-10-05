@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { Resend } from 'resend';
 import { Webhook } from 'standardwebhooks';
 import { mails as M } from '../../../content/mails';
 import { actualizarEntrega, registrarRecibido } from '../../../lib/mails';
 import { runtimeEnv } from '../../../lib/runtime-env';
+import { crearClienteResend } from '../../../lib/resend-client';
 import { claimResendEvent, completeResendEvent, failResendEvent } from '../../../lib/resend-events';
 
 // Webhook de Resend: estados de entrega de los mails enviados y mails recibidos (respuestas).
@@ -63,9 +63,9 @@ export const POST: APIRoute = async ({ request }) => {
       let cuerpo = '';
       let messageId: string | null = d.message_id ?? null;
       const clave = runtimeEnv('RESEND_API_KEY');
-      let resend: Resend | null = null;
+      let resend: ReturnType<typeof crearClienteResend> | null = null;
       if (clave) {
-        resend = new Resend(clave);
+        resend = crearClienteResend(clave, runtimeEnv('RESEND_TEST_BASE_URL'));
         const { data, error } = await resend.emails.receiving.get(emailId);
         if (error || !data) throw new Error('provider');
         cuerpo = data.text ?? '';

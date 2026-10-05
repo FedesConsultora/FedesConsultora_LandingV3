@@ -4,7 +4,7 @@ export const prerender = false;
 
 export const GET: APIRoute = () =>
   Response.json({
-    ok: true,
+    status: 'ok',
     service: 'fedesconsultora-web',
-    version: import.meta.env.PUBLIC_BUILD_ID || 'unknown',
+    build: import.meta.env.PUBLIC_BUILD_ID || 'unknown',
   });

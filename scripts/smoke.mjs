@@ -34,7 +34,7 @@ try {
 try {
   const health = await fetch(`${base}/api/health`, { redirect: 'manual' });
   const json = await health.json();
-  check('GET /api/health', health.status === 200 && json.ok === true && json.service === 'fedesconsultora-web');
+  check('GET /api/health', health.status === 200 && json.status === 'ok' && json.service === 'fedesconsultora-web' && typeof json.build === 'string');
 } catch {
   check('GET /api/health', false, 'sin respuesta JSON válida');
 }
@@ -62,6 +62,31 @@ try {
   check('contacto rechaza cuerpos mayores a 256 KiB', oversized.status === 413, `HTTP ${oversized.status}`);
 } catch {
   check('validaciones de contacto', false, 'sin respuesta');
+}
+
+try {
+  const wrongType = await fetch(`${base}/api/webhooks/resend`, {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'text/plain' },
+    body: 'not-json',
+  });
+  check('webhook rechaza Content-Type inesperado', wrongType.status === 415, `HTTP ${wrongType.status}`);
+
+  const invalidSignature = await fetch(`${base}/api/webhooks/resend`, {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'email.delivered', data: { email_id: 're_invalid_signature' } }),
+  });
+  check('webhook rechaza firma ausente', invalidSignature.status === 401, `HTTP ${invalidSignature.status}`);
+
+  const oversizedWebhook = await fetch(`${base}/api/webhooks/resend`, {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ padding: 'x'.repeat(1024 * 1024) }),
+  });
+  check('webhook rechaza cuerpos mayores a 1 MiB', oversizedWebhook.status === 413, `HTTP ${oversizedWebhook.status}`);
+} catch {
+  check('validaciones del webhook', false, 'sin respuesta');
 }
 
 try {
