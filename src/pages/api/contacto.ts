@@ -80,6 +80,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   const hasDb = dbConfigured();
   const apiKey = runtimeEnv('RESEND_API_KEY');
+  const contactTo = runtimeEnv('CONTACT_TO');
+  const contactFrom = runtimeEnv('CONTACT_FROM');
+  const remitentePrueba = /@resend\.dev(?:>|$)/i.test(contactFrom ?? '');
+  const avisoConfigurado = Boolean(apiKey && contactTo && contactFrom && !remitentePrueba);
 
   if (!hasDb) {
     // Local sin servicios: permite revisar el formulario, pero nunca imprime datos personales.
@@ -91,7 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
   // haya un éxito aparente sin lead en el pipeline.
   let formulario: { leadId: number; formId: number };
   try {
-    formulario = await registrarFormulario({ ...fields, resend_status: apiKey ? 'pending' : 'skipped' });
+    formulario = await registrarFormulario({ ...fields, resend_status: avisoConfigurado ? 'pending' : 'skipped' });
   } catch {
     console.error(JSON.stringify({ event: 'contact_persist_failed' }));
     return json({ ok: false, error: 'save_failed' }, 500);
@@ -99,9 +103,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   // El correo es un aviso best-effort; la solicitud ya quedó guardada.
   let resendStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
-  if (apiKey) {
-    const to = runtimeEnv('CONTACT_TO') || 'info@fedesconsultora.com';
-    const from = runtimeEnv('CONTACT_FROM') || 'Web Fedes <onboarding@resend.dev>';
+  if (apiKey && !avisoConfigurado) {
+    console.error(JSON.stringify({ event: 'contact_mail_skipped', error: 'missing_or_test_sender_config' }));
+  }
+  if (avisoConfigurado) {
+    const to = contactTo!;
+    const from = contactFrom!;
     const rows: [string, string][] = [
       ['Nombre y apellido', fields.nombre],
       ['Empresa', fields.empresa],
@@ -139,7 +146,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  if (apiKey) {
+  if (avisoConfigurado) {
     try {
       await actualizarEstadoFormulario(formulario.formId, resendStatus);
     } catch {
