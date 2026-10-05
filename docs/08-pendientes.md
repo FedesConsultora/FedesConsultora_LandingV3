@@ -2,7 +2,7 @@
 
 > **Nota de vigencia:** los registros anteriores documentan decisiones y despliegues históricos de V3 sobre Vercel. La arquitectura de producción vigente es Astro Node standalone en Docker, detrás del proxy Nginx central; Neon y Resend siguen externos. Los procedimientos actuales están en `docs/DEPLOY_VPS.md` y `docs/OPERATIONS.md`. Las migraciones `001–007` están aplicadas en producción y no se editan.
 
-Ninguno bloquea empezar a construir: los textos están escritos para no depender de estos datos. Al llegar a una sección con un pendiente, dejá un marcador visible y no inventes el dato.
+Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. **Los textos legales sí bloquean el lanzamiento público con captación de datos y los mails reales**: no inventar contenido; mantener `PUBLIC_INDEXABLE=false` y `RESEND_API_KEY` ausente hasta su aprobación.
 
 ## Contenido
 
@@ -47,7 +47,7 @@ Ninguno bloquea empezar a construir: los textos están escritos para no depender
 - **Rótulos de sección del Inicio** (`El problema`, `Rutas`, `Cómo trabajamos`, `Casos`, `Por qué Fedes`) y rótulos del pie (`Menú`, `Contacto`, `Legales`): tomados de los nombres de sección de los docs, no son textos literales. Validar.
 - **Logo:** cargado el SVG en blanco (menú, pie y favicon con la «D»). Falta la versión en negro por si se necesita sobre fondo blanco, y confirmar el favicon.
 - **Tipografías:** provisorias, Inter (títulos) y Source Serif 4 Light (cuerpo). Reemplazar por Söhne y DJR Banner.
-- **Vercel:** la vista previa lleva `noindex`. Definir `PUBLIC_INDEXABLE=true` recién al lanzar el dominio.
+- **Indexación:** el artefacto de rehearsal lleva `PUBLIC_INDEXABLE=false`. Publicar una imagen nueva con `PUBLIC_INDEXABLE=true` sólo después del cutover, legales y contenido aprobados.
 - **Formulario:** envío por Resend a `info@fedesconsultora.com` (provisorio). Falta crear la cuenta y la API key de Resend, y verificar el dominio de envío.
 
 ## Registro de la construcción (Consultoría, Casos, Contacto, Nosotros)
@@ -71,12 +71,12 @@ Ninguno bloquea empezar a construir: los textos están escritos para no depender
 ## Registro de la construcción (SEO y GEO, fase 1)
 
 - **Dominio asumido:** `https://fedesconsultora.com` para canonical, sitemap y datos estructurados. Se cambia con la variable `PUBLIC_SITE_URL`. Confirmar.
-- **Lanzamiento (checklist):**
-  1. En Vercel, definir `PUBLIC_INDEXABLE=true`. Quita el `noindex` y abre `robots.txt`.
-  2. Conectar el dominio `fedesconsultora.com` al proyecto.
-  3. Redirecciones 301 desde las URLs de la web actual (`/agencia` ya redirige). Falta el listado de URLs viejas.
-  4. Enviar `https://fedesconsultora.com/sitemap-index.xml` a Google Search Console y a Bing Webmaster Tools.
-  5. Instalar analítica (GA4) con el evento de envío del formulario.
+- **Lanzamiento (checklist vigente):**
+  1. Publicar y validar la imagen OCI por SHA/digest con `PUBLIC_INDEXABLE=false`.
+  2. Hacer el cutover del vhost existente de `fedesconsultora.com` al contenedor siguiendo `docs/DEPLOY_VPS.md`, sin cambiar DNS salvo que el preflight detecte una desviación.
+  3. Validar redirects, sitemap, robots, headers privados y smoke externo.
+  4. Resolver legales/contenido y recién entonces publicar otra imagen con `PUBLIC_INDEXABLE=true`.
+  5. Enviar `https://fedesconsultora.com/sitemap-index.xml` a Google Search Console y Bing Webmaster Tools y habilitar GA4 si se configuró `PUBLIC_GA_ID`.
 - **Datos estructurados:** `Organization`/`ProfessionalService`, `WebSite`, `BreadcrumbList`, `ContactPage` y un `Service` por ruta con sus onboardings (sin precios). Usan solo datos de los docs. No incluyen teléfono: el WhatsApp publicado tiene característica 221 (La Plata) y hay que confirmar que coincida con «Buenos Aires».
 - **Metadatos:** título del Inicio acortado a 56 caracteres. La meta descripción de Consultoría (184 caracteres) se dejó tal cual figura en `docs/02-sitemap.md`, aunque Google puede cortarla cerca de los 155. Validar si se acorta.
 - **`robots.txt`:** al lanzar permite a los rastreadores de buscadores con IA (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, etc.). Decisión editable en `src/pages/robots.txt.ts`.
@@ -248,9 +248,11 @@ A pedido del cliente, se revirtió parcialmente el cambio anterior: el calendari
 - **Protección de producción:** `verificar:fase1` y `db:seed-demo` solo corren si la base tiene la tabla marcadora `marca_desarrollo`, que existe únicamente en la rama `desarrollo`. Probado: contra `main` se detienen sin tocar nada. `db:migrate` y `admin:crear` no tienen esta protección, porque también se usan en producción: siempre muestran o usan la base del `.env`, revisarla antes.
 - **El «©» del pie del sitio** no cuenta como emoji: el control de contenido de las landings tampoco marca ©, ® ni ™.
 
-## Publicar la fase 1 en producción (checklist)
+## Publicar la fase 1 en producción (checklist histórico de Vercel; no usar para VPS)
 
-Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada:
+> Conservado como registro del despliegue anterior. Para el release actual usar exclusivamente `docs/DEPLOY_VPS.md`, `docs/OPERATIONS.md` y `docs/ROLLBACK.md`.
+
+El procedimiento histórico era:
 
 1. En Neon (Vercel > Storage > Open in Neon), confirmar que la restauración a un punto anterior esté disponible para `main`.
 2. En Vercel > Settings > Environment Variables, cargar `LANDING_TOKEN_KEY` (`openssl rand -base64 32`), distinta de la de desarrollo. Confirmar que `SESSION_SECRET` exista.
@@ -278,10 +280,10 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 1. Crear la cuenta de Resend y verificar `fedesconsultora.com` (registros SPF, DKIM y DMARC en el DNS). Confirmar que el plan incluya recepción de mails.
 2. Configurar un subdominio de recepción (por ejemplo `r.fedesconsultora.com`, registro MX que indica Resend) y cargar `MAIL_RESPUESTAS_DOMINIO`.
 3. Crear el webhook en Resend hacia `https://fedesconsultora.com/api/webhooks/resend` con los eventos de entrega, rebote, spam, fallo y recepción; cargar su secreto en `RESEND_WEBHOOK_SECRET`.
-4. Cargar en Vercel `RESEND_API_KEY`, `MAIL_LINKS_URL` (el dominio del sitio) y `MAIL_COPIA_RESPUESTAS=info@fedesconsultora.com`. No cargar `MAIL_PERMITIDOS` en producción.
-5. Aplicar la migración 007 en `main`.
+4. Cargar `RESEND_API_KEY`, `MAIL_LINKS_URL=https://fedesconsultora.com` y `MAIL_COPIA_RESPUESTAS=info@fedesconsultora.com` como configuración runtime del contenedor **sólo después del smoke sin correo real**. No cargar `MAIL_PERMITIDOS` en producción estable.
+5. Las migraciones 001–007 ya están aplicadas. El release VPS agrega 008; confirmar por dry-run que no aparezca ninguna otra pendiente.
 6. Reemplazar el pie legal y los textos «[PENDIENTE]», y aprobar las plantillas desde el panel. Hasta entonces, nada sale.
-7. Probar primero en una vista previa con `MAIL_PERMITIDOS` = un mail propio.
+7. Hacer primero un envío controlado con destinatario permitido antes de quitar la allowlist de prueba.
 
 ## Publicación en producción (30/09)
 
@@ -293,7 +295,7 @@ Nada de esto está hecho. Hacerlo en este orden, cuando la fase 1 esté aprobada
 
 ## Portal de leads (decisiones abiertas de `09-portal-leads.md`, actualizado 29/09)
 
-Resuelto el 29/09: stack actual (Astro, Vercel, Postgres, Resend), remitente `info@fedesconsultora.com`, todos los leads en el panel, landing solo después de la sesión, mails manuales, automáticos por etapa y recordatorios, respuestas en el panel, medición de aperturas y clics, y agenda con el link actual de Google Calendar hasta migrar a cal.com.
+Resuelto: stack actual Astro Node standalone en Docker detrás del Nginx central, Neon Postgres y Resend externos; remitente previsto `info@fedesconsultora.com`; todos los leads en el panel, landing después de la sesión, mails manuales/por etapa, respuestas en el panel, medición de aperturas y clics, y agenda con Google Calendar hasta migrar a cal.com.
 
 Sigue abierto:
 
