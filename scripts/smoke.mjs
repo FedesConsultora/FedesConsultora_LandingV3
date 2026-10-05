@@ -23,6 +23,15 @@ for (const path of [
 }
 
 try {
+  const oldAgency = await fetch(`${base}/agencia`, { redirect: 'manual' });
+  check('/agencia redirige a /consultoria',
+    [301, 302, 307, 308].includes(oldAgency.status) && new URL(oldAgency.headers.get('location') || '/', base).pathname === '/consultoria',
+    `HTTP ${oldAgency.status}`);
+} catch {
+  check('/agencia redirige a /consultoria', false, 'sin respuesta');
+}
+
+try {
   const health = await fetch(`${base}/api/health`, { redirect: 'manual' });
   const json = await health.json();
   check('GET /api/health', health.status === 200 && json.ok === true && json.service === 'fedesconsultora-web');
