@@ -170,6 +170,36 @@ try {
     ...process.env,
     PROXY_NODE_TEST_BASE: base,
   });
+
+  // El Node adapter debe usar la IP reenviada por el proxy sólo cuando el host está validado.
+  // Si esto falla, todos los visitantes detrás de Nginx compartirían el mismo rate-limit.
+  const loginDesde = (ip) =>
+    fetch(`${base}/api/admin/login`, {
+      method: 'POST',
+      headers: {
+        Host: 'fedesconsultora.com',
+        Origin: 'https://fedesconsultora.com',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Forwarded-For': ip,
+        'X-Forwarded-Host': 'fedesconsultora.com',
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Port': '443',
+      },
+      body: new URLSearchParams({ username: 'ci-forwarded-ip-inexistente', password: 'incorrecta' }),
+      redirect: 'manual',
+    });
+  await sqlCI`DELETE FROM intentos WHERE tipo = 'login'`;
+  for (let i = 0; i < 5; i++) {
+    const intento = await loginDesde('198.51.100.20');
+    if (intento.status !== 401) throw new Error(`Rate-limit proxy: intento ${i + 1} debía devolver 401 y devolvió ${intento.status}.`);
+  }
+  const bloqueada = await loginDesde('198.51.100.20');
+  if (bloqueada.status !== 429) throw new Error(`Rate-limit proxy: la sexta falla debía devolver 429 y devolvió ${bloqueada.status}.`);
+  const otraIp = await loginDesde('198.51.100.21');
+  if (otraIp.status !== 401) throw new Error(`Rate-limit proxy: otra IP debe conservar su cupo; devolvió ${otraIp.status}.`);
+  await sqlCI`DELETE FROM intentos WHERE tipo = 'login'`;
+  console.log('OK   proxy/clientAddress: X-Forwarded-For validado separa rate-limits por cliente.');
+
   correr('npm', ['run', 'verificar:fase1']);
   correr('npm', ['run', 'verificar:fase2']);
 
