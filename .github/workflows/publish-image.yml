@@ -1,0 +1,117 @@
+name: Publish release image
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-image-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/fedesconsultora/fedesconsultora-landingv3
+      IMAGE_TAG: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - name: Build image without production secrets
+        run: >-
+          docker build
+          --build-arg PUBLIC_SITE_URL=https://fedesconsultora.com
+          --build-arg PUBLIC_INDEXABLE=false
+          --build-arg PUBLIC_GA_ID=
+          --build-arg PUBLIC_BUILD_ID=${GITHUB_SHA}
+          --build-arg VCS_REF=${GITHUB_SHA}
+          --tag "${IMAGE}:${IMAGE_TAG}" .
+      - name: Inspect and rehearse hardened runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${IMAGE}:${IMAGE_TAG}"
+          user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+          test "$user" = node
+          build="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+          test "$build" = "$GITHUB_SHA"
+          env_config="$(docker image inspect --format '{{json .Config.Env}}' "$image")"
+          node -e 'const e=JSON.parse(process.argv[1]); for (const n of ["POSTGRES_URL","SESSION_SECRET","LANDING_TOKEN_KEY","RESEND_API_KEY","RESEND_WEBHOOK_SECRET"]) if (e.some(x=>x.startsWith(`${n}=`))) process.exit(1)' "$env_config"
+          IMAGE_REF="$image" RUNTIME_ENV_FILE=/dev/null RUNTIME_ENV_FILE_REQUIRED=false docker compose config --format json > /tmp/fedes-compose.json
+          node -e 'const s=require("fs").readFileSync("/tmp/fedes-compose.json","utf8");const c=JSON.parse(s).services["fedesconsultora-web"];if(!c||c.ports||!c.expose?.includes("4321")||c.restart!=="unless-stopped"||!c.read_only||c.init!==true)process.exit(1)'
+
+          for suffix in a b; do
+            name="fedes-release-smoke-${suffix}"
+            session_secret="$(openssl rand -hex 32)"
+            landing_key="$(openssl rand -hex 32)"
+            docker run -d --name "$name" --init --read-only --user 1000:1000 \
+              --cap-drop ALL --security-opt no-new-privileges:true \
+              --tmpfs /tmp:rw,noexec,nosuid,size=16m,mode=1777 \
+              --stop-timeout 20 -p 127.0.0.1:14321:4321 \
+              -e "SESSION_SECRET=$session_secret" -e "LANDING_TOKEN_KEY=$landing_key" \
+              -e RESEND_WEBHOOK_SECRET=whsec_dGVzdHNlY3JldA== "$image" >/dev/null
+            ready=0
+            for _ in $(seq 1 100); do
+              if curl -fsS http://127.0.0.1:14321/api/health -o /tmp/fedes-health.json; then ready=1; break; fi
+              sleep 0.5
+            done
+            test "$ready" = 1
+            node -e 'const x=require("fs").readFileSync(process.argv[1],"utf8");const j=JSON.parse(x);if(j.status!=="ok"||j.service!=="fedesconsultora-web"||j.build!==process.argv[2])process.exit(1)' /tmp/fedes-health.json "$GITHUB_SHA"
+            docker exec "$name" node -e 'if(process.env.SESSION_SECRET!==process.argv[1]||process.env.LANDING_TOKEN_KEY!==process.argv[2])process.exit(1)' "$session_secret" "$landing_key"
+            healthy=0
+            for _ in $(seq 1 40); do
+              if [ "$(docker inspect --format '{{.State.Health.Status}}' "$name")" = healthy ]; then healthy=1; break; fi
+              sleep 0.5
+            done
+            test "$healthy" = 1
+            test "$(docker inspect --format '{{.HostConfig.CapDrop}}' "$name")" = '[ALL]'
+            security="$(docker inspect --format '{{.HostConfig.SecurityOpt}}' "$name")"
+            case "$security" in *no-new-privileges*) ;; *) exit 1 ;; esac
+            test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$name")" = true
+            test "$(docker exec "$name" id -u)" = 1000
+            docker exec "$name" node -e 'require("fs").writeFileSync("/tmp/runtime-write-check","ok")'
+            if docker exec "$name" node -e 'require("fs").writeFileSync("/app/runtime-write-check","forbidden")' >/dev/null 2>&1; then exit 1; fi
+            if [ "$suffix" = a ]; then SMOKE_BASE=http://127.0.0.1:14321 npm run smoke; fi
+            started=$SECONDS
+            docker stop --time 20 "$name" >/dev/null
+            exit_code="$(docker wait "$name")"
+            case "$exit_code" in 0|143) ;; *) exit 1 ;; esac
+            test "$((SECONDS-started))" -le 20
+            docker rm "$name" >/dev/null
+          done
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish immutable SHA tag
+        id: push
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing image tag ${IMAGE_TAG}. Deploy its digest or publish a new commit." >&2
+            exit 1
+          fi
+          push_log="$(mktemp)"
+          docker push "${IMAGE}:${IMAGE_TAG}" | tee "$push_log"
+          digest="$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' "$push_log" | tail -1)"
+          test -n "$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Published ${IMAGE}@${digest} for ${GITHUB_SHA}"

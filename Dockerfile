@@ -24,6 +24,11 @@ RUN npm ci --omit=dev
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4321
 WORKDIR /app
+ARG VCS_REF=unknown
+ARG PUBLIC_BUILD_ID=unknown
+LABEL org.opencontainers.image.source="https://github.com/FedesConsultora/FedesConsultora_LandingV3" \
+      org.opencontainers.image.revision=${VCS_REF} \
+      org.opencontainers.image.version=${PUBLIC_BUILD_ID}
 
 COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
@@ -35,4 +40,6 @@ COPY --from=build --chown=node:node /app/scripts/lib/split-sql.mjs ./scripts/lib
 
 USER node
 EXPOSE 4321
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:4321/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 CMD ["node", "./dist/server/entry.mjs"]

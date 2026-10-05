@@ -1,0 +1,12 @@
+# Override exclusivo para compilar/probar localmente. Producción usa docker-compose.yml
+# con IMAGE_REF apuntando a un artefacto publicado e inmutable.
+services:
+  fedesconsultora-web:
+    build:
+      context: .
+      args:
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://fedesconsultora.com}
+        PUBLIC_INDEXABLE: ${PUBLIC_INDEXABLE:-false}
+        PUBLIC_GA_ID: ${PUBLIC_GA_ID:-}
+        PUBLIC_BUILD_ID: ${BUILD_SHA:-unknown}
+        VCS_REF: ${BUILD_SHA:-unknown}

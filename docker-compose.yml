@@ -1,13 +1,6 @@
 services:
   fedesconsultora-web:
-    image: fedesconsultora-web:${IMAGE_TAG:-local}
-    build:
-      context: .
-      args:
-        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://fedesconsultora.com}
-        PUBLIC_INDEXABLE: ${PUBLIC_INDEXABLE:-false}
-        PUBLIC_GA_ID: ${PUBLIC_GA_ID:-}
-        PUBLIC_BUILD_ID: ${BUILD_SHA:-unknown}
+    image: ${IMAGE_REF:?Set IMAGE_REF to an immutable GHCR tag or digest}
     container_name: fedesconsultora-web
     init: true
     restart: unless-stopped
@@ -21,7 +14,8 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=1777
     env_file:
-      - .env.production
+      - path: ${RUNTIME_ENV_FILE:-.env.production}
+        required: ${RUNTIME_ENV_FILE_REQUIRED:-true}
     environment:
       HOST: 0.0.0.0
       PORT: 4321
