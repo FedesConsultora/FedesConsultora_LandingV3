@@ -83,7 +83,9 @@ export const POST: APIRoute = async ({ request }) => {
   const contactTo = runtimeEnv('CONTACT_TO');
   const contactFrom = runtimeEnv('CONTACT_FROM');
   const remitentePrueba = /@resend\.dev(?:>|$)/i.test(contactFrom ?? '');
-  const avisoConfigurado = Boolean(apiKey && contactTo && contactFrom && !remitentePrueba);
+  const aviso = apiKey && contactTo && contactFrom && !remitentePrueba
+    ? { apiKey, to: contactTo, from: contactFrom }
+    : null;
 
   if (!hasDb) {
     // Local sin servicios: permite revisar el formulario, pero nunca imprime datos personales.
@@ -95,7 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
   // haya un éxito aparente sin lead en el pipeline.
   let formulario: { leadId: number; formId: number };
   try {
-    formulario = await registrarFormulario({ ...fields, resend_status: avisoConfigurado ? 'pending' : 'skipped' });
+    formulario = await registrarFormulario({ ...fields, resend_status: aviso ? 'pending' : 'skipped' });
   } catch {
     console.error(JSON.stringify({ event: 'contact_persist_failed' }));
     return json({ ok: false, error: 'save_failed' }, 500);
@@ -103,12 +105,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // El correo es un aviso best-effort; la solicitud ya quedó guardada.
   let resendStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
-  if (apiKey && !avisoConfigurado) {
+  if (apiKey && !aviso) {
     console.error(JSON.stringify({ event: 'contact_mail_skipped', error: 'missing_or_test_sender_config' }));
   }
-  if (avisoConfigurado) {
-    const to = contactTo!;
-    const from = contactFrom!;
+  if (aviso) {
+    const { apiKey: contactApiKey, to, from } = aviso;
     const rows: [string, string][] = [
       ['Nombre y apellido', fields.nombre],
       ['Empresa', fields.empresa],
@@ -126,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
       '</table>';
     const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n');
     try {
-      const { error } = await crearClienteResend(apiKey, runtimeEnv('RESEND_TEST_BASE_URL')).emails.send({
+      const { error } = await crearClienteResend(contactApiKey, runtimeEnv('RESEND_TEST_BASE_URL')).emails.send({
         from,
         to,
         replyTo: fields.email,
@@ -146,7 +147,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  if (avisoConfigurado) {
+  if (aviso) {
     try {
       await actualizarEstadoFormulario(formulario.formId, resendStatus);
     } catch {
