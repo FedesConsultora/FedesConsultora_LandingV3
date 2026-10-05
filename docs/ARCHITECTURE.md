@@ -6,7 +6,7 @@
 Internet
   → Nginx compartido (TLS, host apex, límites, headers)
   → Docker network externa fedes-net
-  → fedesconsultora-web:4321 (Astro 7 / Node standalone)
+  → fedesconsultora-web:4321 (imagen GHCR inmutable, Astro 7 / Node standalone)
   → Neon PostgreSQL + Resend
 ```
 
@@ -20,6 +20,8 @@ Astro prerenderiza las páginas públicas por defecto. Las rutas dinámicas del 
 - Runtime de servidor: `POSTGRES_URL`, `SESSION_SECRET`, `LANDING_TOKEN_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `CONTACT_TO`, `CONTACT_FROM` y `MAIL_*`. Los módulos de servidor usan `getSecret` de `astro:env/server`; se inyectan al iniciar el contenedor.
 - Los scripts de migración y alta de admin usan el entorno de proceso en comandos one-shot. Ninguna clave de producción entra en `docker build`, el lockfile, la imagen o el repositorio.
 - Un cambio de variables `PUBLIC_*` requiere reconstruir el artefacto. Los secretos runtime se cambian sin reconstruir.
+- CI ejecuta el gate hermético y Docker smoke antes de publicar `ghcr.io/fedesconsultora/fedesconsultora-landingv3:sha-<SHA>`. Producción fija `IMAGE_REF` al digest OCI del workflow. El Compose de producción no tiene bloque `build`; `docker-compose.build.yml` sólo habilita builds locales.
+- El workflow de integración se dispara manualmente, exige `DATABASE_ENV=ci` y la marca persistente `marca_ci` con el ID exacto de la rama Neon exclusiva. Para probar efectos del webhook, usa un servidor Resend falso en loopback con clave sintética; la app rechaza endpoints de mock no locales.
 
 ## Frontera del proxy
 

@@ -2,7 +2,7 @@
 
 ## Estado y salud
 
-El healthcheck de Compose solicita `GET /api/health` cada 30 segundos y sólo confirma que el proceso responde; no consulta Neon. Devuelve `ok`, el nombre del servicio y el SHA/build público. Una base Neon en scale-to-zero no debe marcar unhealthy a la app.
+El healthcheck de Compose solicita `GET /api/health` cada 30 segundos y sólo confirma que el proceso responde; no consulta Neon. Devuelve `status: ok`, el nombre del servicio y el SHA/build público. Una base Neon en scale-to-zero no debe marcar unhealthy a la app.
 
 ```sh
 cd /srv/fedesconsultora
@@ -24,7 +24,16 @@ Los logs de la app van a stdout/stderr y Docker los rota a 3 archivos de 10 MB. 
 
 ## Disco y releases
 
-Conservar las últimas 2–3 imágenes release por SHA y verificar `docker image ls` antes de limpiar. El VPS inventariado está al 81% de uso y mantiene varios servicios compartidos; hacer `df -h`, `docker system df` y revisar `docker builder du` antes de cualquier housekeeping. Limpiar caché de build antigua de forma dirigida. No ejecutar `docker system prune -a`, no limpiar volúmenes y no borrar la imagen de rollback elegida.
+El artefacto de producción se fija por digest OCI desde GHCR y no se compila en el VPS. Conservar las últimas 2–3 imágenes release y verificar `docker image ls ghcr.io/fedesconsultora/fedesconsultora-landingv3` antes de housekeeping. El VPS inventariado está al 81% de uso y mantiene varios servicios compartidos; medir `df -h`, `docker system df` y `docker builder du` antes de limpiar. La limpieza de build cache no afecta al flujo de deploy y debe ser dirigida. No ejecutar `docker system prune -a`, no limpiar volúmenes y no borrar la imagen de rollback elegida.
+
+Para revisar digest y servicio actual sin imprimir el entorno:
+
+```sh
+cd /srv/fedesconsultora
+docker compose --env-file .env.production ps
+docker image inspect "$IMAGE_REF" --format '{{.Id}} {{index .RepoDigests 0}}'
+docker compose -f /srv/proxy/docker-compose.yml exec -T nginx wget -qO- http://fedesconsultora-web:4321/api/health
+```
 
 ## Incidentes
 
