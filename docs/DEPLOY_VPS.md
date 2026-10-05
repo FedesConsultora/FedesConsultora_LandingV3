@@ -25,7 +25,11 @@ La captura inicial mostró Ubuntu 24.04.5, Docker 29.6.2, Compose 5.3.1, 40 GB l
 ```sh
 sudo install -d -o "$USER" -g "$USER" /srv/fedesconsultora
 cd /srv/fedesconsultora
-git fetch --all --tags
+if [ ! -d .git ]; then
+  git clone https://github.com/FedesConsultora/FedesConsultora_LandingV3.git .
+else
+  git fetch origin --prune --tags
+fi
 git checkout --detach <SHA_REVISADO>
 test "$(git rev-parse HEAD)" = "<SHA_REVISADO>"
 git status --short --branch
@@ -41,7 +45,7 @@ Crear `/srv/fedesconsultora/.env.production` con el gestor de secretos vigente, 
 chmod 600 /srv/fedesconsultora/.env.production
 ```
 
-Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE=false`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID` (SHA). Cambiarlas requiere otra imagen. Nunca incluir secretos en argumentos de build.
+Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE=false`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID` (SHA). El workflow toma `PUBLIC_GA_ID` de la variable de repositorio GitHub homónima; si no existe, la imagen se publica sin GA4. Cambiar cualquiera de estas variables exige publicar una nueva imagen/SHA; nunca incluir secretos en argumentos de build.
 
 | Variable runtime | Clasificación y uso |
 |---|---|
@@ -99,7 +103,7 @@ docker compose -f /srv/proxy/docker-compose.yml exec -T nginx wget -qO- http://f
 
 El endpoint esperado es `{"status":"ok","service":"fedesconsultora-web","build":"<SHA>"}`. El servicio sólo expone 4321 dentro de `fedes-net`; no publica un puerto del host.
 
-El vhost vigente está en `/srv/proxy/nginx/conf.d/fedesconsultora.com.conf`, ACME usa `/var/www/certbot`, los certificados montados se ubican en `/etc/letsencrypt/live/fedesconsultora.com/{fullchain.pem,privkey.pem}` y el servicio Compose real se llama `nginx` (contenedor `fedes-proxy`). El sitio estático previo en `/srv/www/fedes.ai` se conserva para rollback.
+El vhost vigente está en `/srv/proxy/nginx/conf.d/fedesconsultora.com.conf`, ACME usa `/var/www/certbot`, los certificados montados se ubican en `/etc/letsencrypt/live/fedesconsultora.com/{fullchain.pem,privkey.pem}` y el servicio Compose real se llama `nginx` (contenedor `fedes-proxy`). El sitio estático previo en `/srv/www/fedes.ai` se conserva para rollback. La plantilla nueva conserva TLS 1.2/1.3, HSTS de 24 horas y `upgrade-insecure-requests` del vhost vigente además de los headers de V3.
 
 Antes de reemplazar el vhost, guardar una copia fechada. Integrar la plantilla `deploy/nginx/fedesconsultora.com.conf.example` en el archivo real y verificar, sin borrar la copia:
 
