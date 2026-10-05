@@ -7,7 +7,7 @@
 // Solo corre sobre la rama de desarrollo (ver scripts/lib/guardia.mjs).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomBytes, scryptSync } from 'node:crypto';
+import { createHash, randomBytes, scryptSync } from 'node:crypto';
 import { baseDeDesarrollo } from './lib/guardia.mjs';
 
 const sql = await baseDeDesarrollo();
@@ -48,12 +48,12 @@ let cookie = '';
 let csrf = '';
 const conSesion = (extra = {}) => ({ Cookie: `fedes_admin_session=${cookie}`, ...extra });
 const get = (path, headers = {}) => fetch(`${BASE}${path}`, { headers: { 'User-Agent': NAVEGADOR, ...headers }, redirect: 'manual' });
-const post = (path, campos, { sesion = true, conCsrf = true, origen = BASE } = {}) =>
+const post = (path, campos, { sesion = true, conCsrf = true, csrfValue = csrf, origen = BASE } = {}) =>
   fetch(`${BASE}${path}`, {
     method: 'POST',
     headers: { ...(sesion ? conSesion() : {}), Origin: origen },
     body: new URLSearchParams([
-      ...(conCsrf ? [['csrf', csrf]] : []),
+      ...(conCsrf ? [['csrf', csrfValue]] : []),
       ...Object.entries(campos).flatMap(([k, v]) => [v].flat().map((x) => [k, String(x)])),
     ]),
     redirect: 'manual',
@@ -72,14 +72,17 @@ try {
   r = await post('/api/admin/login', { username: USUARIO, password: PASS }, { sesion: false, conCsrf: false, origen: 'https://otro-sitio.com' });
   check('login desde otro sitio: rechazado', r.status === 403);
   r = await post('/api/admin/login', { username: USUARIO, password: PASS }, { sesion: false, conCsrf: false });
-  cookie = /fedes_admin_session=([^;]+)/.exec(r.headers.get('set-cookie') ?? '')?.[1] ?? '';
-  check('login correcto, cookie HttpOnly y SameSite=Strict', r.status === 200 && /HttpOnly/i.test(r.headers.get('set-cookie')) && /SameSite=Strict/i.test(r.headers.get('set-cookie')));
+  const cookieHeader = r.headers.get('set-cookie') ?? '';
+  cookie = /fedes_admin_session=([^;]+)/.exec(cookieHeader)?.[1] ?? '';
+  check('login correcto, cookie HttpOnly, Secure, SameSite=Strict y Path=/', r.status === 200 && /HttpOnly/i.test(cookieHeader) && /Secure/i.test(cookieHeader) && /SameSite=Strict/i.test(cookieHeader) && /Path=\//i.test(cookieHeader));
   csrf = /name="csrf-token" content="([^"]+)"/.exec(await (await get('/admin', conSesion())).text())?.[1] ?? '';
   check('el panel abre con sesión', Boolean(csrf));
 
   const manual = { nombre: 'Lead Verificación', empresa: 'Empresa Verificación SA', fuente: 'linkedin', email: EMAILS[0] };
   r = await post('/admin/leads/nuevo', manual, { conCsrf: false });
   check('crear un lead sin token CSRF: rechazado', r.status === 403);
+  r = await post('/admin/leads/nuevo', manual, { csrfValue: 'csrf-invalido' });
+  check('crear un lead con token CSRF incorrecto: rechazado', r.status === 403);
   r = await post('/admin/leads/nuevo', manual);
   const leadId = Number(/\/admin\/leads\/(\d+)/.exec(r.headers.get('location') ?? '')?.[1]);
   const [lead] = await sql`SELECT estado FROM leads WHERE id = ${leadId}`;
@@ -219,6 +222,19 @@ try {
   check('ningún archivo de pantallas o textos menciona montos', conPrecio.length === 0, conPrecio.join(', '));
   const plantilla = await sql`SELECT titulo, contenido::text AS contenido FROM plantilla_etapas`;
   check('la plantilla de etapas no tiene emojis ni montos', plantilla.every((p) => !EMOJI.test(p.titulo + p.contenido) && !PRECIO.test(p.titulo + p.contenido)));
+
+  const expiredHash = createHash('sha256').update(cookie).digest('hex');
+  await sql`UPDATE sesiones_admin SET vence_el = now() - interval '1 minute' WHERE token_hash = ${expiredHash}`;
+  const expiredSession = await get('/admin', conSesion());
+  check('una sesión expirada se rechaza', [302, 303, 307, 308].includes(expiredSession.status) && new URL(expiredSession.headers.get('location') || '/', BASE).pathname === '/admin/login');
+
+  const revokedToken = randomBytes(32).toString('base64url');
+  const revokedHash = createHash('sha256').update(revokedToken).digest('hex');
+  await sql`INSERT INTO sesiones_admin (admin_id, token_hash, vence_el) VALUES (${admin.id}, ${revokedHash}, now() + interval '1 hour')`;
+  const activeSession = await get('/admin', { Cookie: `fedes_admin_session=${revokedToken}` });
+  await sql`UPDATE sesiones_admin SET revocada_el = now() WHERE token_hash = ${revokedHash}`;
+  const revokedSession = await get('/admin', { Cookie: `fedes_admin_session=${revokedToken}` });
+  check('una sesión revocada se rechaza', activeSession.status === 200 && [302, 303, 307, 308].includes(revokedSession.status));
 } finally {
   await sql`DELETE FROM leads WHERE email = ANY(${EMAILS})`;
   await sql`DELETE FROM intentos WHERE creado_el >= ${inicio}`;

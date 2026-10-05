@@ -27,6 +27,7 @@ try {
 
 const resultados = [];
 let criterio = '';
+const eventosPrueba = [];
 const seccion = (n) => {
   criterio = n;
   console.log(`\n${n}`);
@@ -54,6 +55,7 @@ const envios = (leadId) => sql`SELECT * FROM envios WHERE lead_id = ${leadId} OR
 const plantilla = async (clave) => (await sql`SELECT * FROM plantillas_mail WHERE clave = ${clave}`)[0];
 const texto = async (r) => r.text();
 const eventoFirmado = (tipo, data, id = `msg_${randomBytes(8).toString('hex')}`) => {
+  eventosPrueba.push(id);
   const payload = JSON.stringify({ type: tipo, created_at: new Date().toISOString(), data });
   const ts = new Date();
   const firma = new Webhook(process.env.RESEND_WEBHOOK_SECRET).sign(id, ts, payload);
@@ -216,6 +218,24 @@ try {
   check('evento duplicado/concurrente se procesa una sola vez', concurrentes.every((x) => [200, 503].includes(x.status)) && r.status === 200 && eventosRecibidos.length === 1 && eventosRecibidos[0].estado === 'done');
   check('la respuesta queda asociada una vez al lead y al mail que responde', recibidos.length === 1 && recibidos[0].lead_id === lead.id && recibidos[0].envio_id === manual.id);
   check('adjuntos: solo nombre y tamaño', JSON.stringify(recibidos[0]?.adjuntos) === JSON.stringify([{ nombre: 'nota.pdf', tamano: 2048 }]));
+
+  const leaseExpiradoId = `lease_${randomBytes(8).toString('hex')}`;
+  const leaseExpirado = eventoFirmado('email.delivered', { email_id: `re_prueba_${manual.id}` }, leaseExpiradoId);
+  await sql`INSERT INTO resend_webhook_events (event_id, event_type, resend_email_id, estado, intentos, lease_until)
+    VALUES (${leaseExpiradoId}, 'email.delivered', ${`re_prueba_${manual.id}`}, 'processing', 1, now() - interval '1 minute')`;
+  const contendientes = await Promise.all([enviarEvento(leaseExpirado), enviarEvento(leaseExpirado)]);
+  const [leaseRecuperado] = await sql`SELECT estado, intentos FROM resend_webhook_events WHERE event_id = ${leaseExpiradoId}`;
+  check('dos retries compiten por un lease vencido y solo una reclamación lo renueva',
+    contendientes.every((x) => [200, 503].includes(x.status)) && leaseRecuperado.estado === 'done' && leaseRecuperado.intentos === 2);
+
+  const leaseFallidoId = `failed_${randomBytes(8).toString('hex')}`;
+  const leaseFallido = eventoFirmado('email.delivered', { email_id: `re_prueba_${manual.id}` }, leaseFallidoId);
+  await sql`INSERT INTO resend_webhook_events (event_id, event_type, resend_email_id, estado, intentos, lease_until, error_code)
+    VALUES (${leaseFallidoId}, 'email.delivered', ${`re_prueba_${manual.id}`}, 'failed', 1, now(), 'provider')`;
+  r = await enviarEvento(leaseFallido);
+  const [reintentoFallido] = await sql`SELECT estado, intentos FROM resend_webhook_events WHERE event_id = ${leaseFallidoId}`;
+  check('un evento fallido puede recuperarse y completar en retry', r.status === 200 && reintentoFallido.estado === 'done' && reintentoFallido.intentos === 2);
+
   html = await texto(await get('/admin/mails'));
   check('aparece en la bandeja como no leída, con el contador en el menú', html.includes('Re: Seguimiento') && html.includes('aria-label="Sin leer"') && /aria-label="\d+ sin leer"/.test(html));
   html = await texto(await get(`/admin/mails/${recibidos[0].id}`));
@@ -232,6 +252,7 @@ try {
     await sql`UPDATE plantillas_mail SET asunto = ${p.asunto}, cuerpo = ${p.cuerpo}, aprobada = ${p.aprobada}, aprobada_por = ${p.aprobada_por}, aprobada_el = ${p.aprobada_el} WHERE id = ${p.id}`;
   }
   await sql`DELETE FROM leads WHERE email = ANY(${EMAILS})`;
+  await sql`DELETE FROM resend_webhook_events WHERE event_id = ANY(${eventosPrueba})`;
   await sql`DELETE FROM intentos WHERE creado_el >= ${inicio}`;
   await sql`DELETE FROM auditoria WHERE admin_id = ${admin.id} OR (entidad = 'lead' AND entidad_id = ANY(${leadsPrueba}))`;
   await sql`DELETE FROM admins WHERE id = ${admin.id}`;

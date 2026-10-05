@@ -1,0 +1,31 @@
+name: Verify isolated Neon integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    environment: neon-ci
+    env:
+      DATABASE_ENV: ci
+      CI_NEON_BRANCH_ID: ${{ vars.CI_NEON_BRANCH_ID }}
+      CI_NEON_POSTGRES_URL: ${{ secrets.CI_NEON_POSTGRES_URL }}
+      CI_SESSION_SECRET: ${{ secrets.CI_SESSION_SECRET }}
+      CI_LANDING_TOKEN_KEY: ${{ secrets.CI_LANDING_TOKEN_KEY }}
+      CI_RESEND_WEBHOOK_SECRET: ${{ secrets.CI_RESEND_WEBHOOK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run verify:integration
+
