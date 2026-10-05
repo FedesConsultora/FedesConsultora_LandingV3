@@ -22,15 +22,15 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Fotografía:** lineamientos (propia o de banco, tratamiento de color).
 - **Textura de papel** y HEX del blanco de fondo.
 
-## Técnico (a definir al construir)
+## Técnico (estado vigente y pendientes externos)
 
-- **Stack** y hosting.
-- **Formulario de contacto:** a dónde llegan los datos y quién los recibe. Respuesta en menos de 24 horas.
-- ~~**Agenda:** si la sesión se coordina por respuesta del equipo o con un calendario para elegir horario.~~ Resuelto (28/09): calendario de Google embebido en `/contacto`, con el formulario como alternativa.
-- **Reemplazo del calendario por cal.com** (pedido del cliente, 29/09): pasar de Google Calendar a cal.com, que sí permite precompletar nombre, mail y demás datos del paso 1 en la página de reserva (Google no lo permite). Falta que el cliente cree la cuenta en cal.com y me pase la URL pública de reserva; ver detalle en el registro de más abajo.
-- **Analítica** y seguimiento de la conversión (envíos del formulario).
-- **Dominio:** fedesconsultora.com y redirección de `/agencia` hacia `/consultoria`.
-- **Páginas legales:** Política de Privacidad y Términos y Condiciones ya existen en la web actual. Hay que actualizar la dirección.
+- **Stack/hosting:** resuelto. Astro Node standalone en Docker, detrás del Nginx central del VPS; Neon PostgreSQL y Resend externos.
+- **Formulario de contacto:** resuelto técnicamente. Neon es fuente de verdad; primero se persiste el lead/formulario y luego se intenta el aviso. Falta confirmar la operación real de Resend y el remitente verificado.
+- **Agenda:** Google Calendar embebido vigente; cal.com queda como mejora futura cuando exista URL pública aprobada.
+- **Analítica:** instrumentación GA4 preparada, pero `PUBLIC_GA_ID` sigue sin definir. La V1 no tiene un Measurement ID versionado para reutilizar.
+- **Dominio:** `fedesconsultora.com`. Redirects de compatibilidad aprobados: `/agencia` y `/consultora` → `/consultoria`; `/hablemos` → `/contacto`; `/onboarding-empresas` → `/onboardings`.
+- **Páginas legales:** siguen pendientes de texto definitivo y revisión profesional. Hasta entonces: `PUBLIC_INDEXABLE=false`, páginas legales con `noindex` y mails reales desactivados.
+- **Release externo:** falta ejecutar Neon CI aislado, publicar la imagen GHCR por SHA/digest y hacer rehearsal/cutover en el VPS según `docs/DEPLOY_VPS.md`.
 
 ## Fuera del sitio
 
@@ -83,7 +83,7 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **`llms.txt`:** resumen del sitio para asistentes de IA, con textos de los docs. Los enlaces apuntan a `fedesconsultora.com`.
 - **Página 404:** textos provisorios, no están en los docs. Validar.
 - **Imagen para compartir** (`og-fedes.jpg`) e íconos: se generan con `node scripts/generate-brand-assets.mjs` a partir del logo y de una foto. Confirmar diseño.
-- **Rendimiento:** fotos servidas en AVIF/WebP con varios tamaños y caché de un año. Encabezados de seguridad básicos en `vercel.json`.
+- **Rendimiento:** fotos servidas en AVIF/WebP con varios tamaños. Caché y headers de seguridad se aplican desde Astro/Nginx; `vercel.json` ya no forma parte del runtime vigente.
 - **Fase 2 (necesita contenido del equipo):** una página por onboarding y por ruta, preguntas frecuentes, notas o guías, fechas de actualización visibles y perfil de Google Business.
 
 ## Registro de la construcción (Onboardings, nueva sección del menú)
@@ -96,15 +96,14 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 
 ## Registro de la construcción (Panel de administración /admin)
 
-- **Qué es:** un panel con usuario y contraseña en `/admin` para ver los leads del formulario de Contacto. Fuera del menú, del pie, del sitemap y de `robots.txt` (no se indexa).
-- **Cambio de fondo en `/api/contacto`:** ahora cada envío se guarda primero en una base de datos (fuente de verdad); el mail por Resend es un aviso, no el único registro. Si Resend falla, el lead no se pierde.
-- **Base de datos:** Vercel Postgres. Falta que el equipo la agregue desde la pestaña «Storage» del proyecto en Vercel (plan gratuito) y que yo corra la migración (`node scripts/migrate.mjs`) para crear la tabla `leads`.
-- **Credenciales del panel:** un solo usuario admin. Se generan con `node scripts/create-admin.mjs`, corrido en la propia terminal de quien lo configure (la contraseña no pasa por el chat ni se guarda en texto plano, solo un hash).
-- **Tráfico (Google Analytics 4):** falta crear la propiedad en analytics.google.com y darme el Measurement ID (`PUBLIC_GA_ID`). El panel `/admin` no mide tráfico: eso queda en el propio Google Analytics, con un enlace directo desde el panel.
-- **Eventos de GA4 ya instrumentados en el código**, se activan solos en cuanto se cargue `PUBLIC_GA_ID`: clic en cualquier botón que lleve a `/contacto` (evento `cta_agendar`, con la página y el texto del botón) y clic en «Ver el detalle» de cada ruta en Onboardings (evento `ver_detalle_ruta`).
-- **Variables de entorno nuevas**, ver `.env.example`: `POSTGRES_URL` (la agrega Vercel sola), `ADMIN_USER`, `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `PUBLIC_GA_ID`.
-- **Sesión:** cookie firmada, válida 12 horas, sin base de datos de sesiones.
-- **Pendiente de decidir:** si más adelante hace falta más de un usuario admin, hoy el panel soporta uno solo (alcanza para empezar).
+- **Qué es:** panel en `/admin`, fuera del menú, pie, sitemap e indexación pública.
+- **Fuente de verdad:** Neon PostgreSQL. Los envíos de Contacto se guardan antes de cualquier aviso por Resend.
+- **Administradores:** tabla `admins` en la base; admite múltiples usuarios activos. Las contraseñas se guardan con scrypt.
+- **Sesiones:** tokens aleatorios con hash en Neon, revocables; inactividad máxima de 30 minutos y duración absoluta de 12 horas. Cookie `HttpOnly`, `Secure`, `SameSite=Strict`.
+- **Seguridad:** CSRF derivado por HMAC, rate-limit por IP, auditoría de acciones sensibles y control de origen en middleware.
+- **Alta de admin:** `npm run admin:crear` como operación interactiva; la contraseña no se pasa por argumentos ni se versiona.
+- **Variables vigentes:** `POSTGRES_URL`, `SESSION_SECRET`, `LANDING_TOKEN_KEY`, `RESEND_WEBHOOK_SECRET`, configuración `CONTACT_*`/`MAIL_*` y las `PUBLIC_*` de build. No existen credenciales `ADMIN_USER`/`ADMIN_PASSWORD_HASH` como arquitectura vigente.
+- **GA4:** instrumentación preparada; falta definir `PUBLIC_GA_ID` si se decide habilitar analítica en el primer release indexable.
 
 ## Registro de la construcción (calendario embebido en Contacto)
 
