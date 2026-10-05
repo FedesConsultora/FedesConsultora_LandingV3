@@ -54,7 +54,7 @@ Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesco
 | `LANDING_TOKEN_KEY` | Secreto. Mantener la clave que cifra los tokens guardados. |
 | `RESEND_WEBHOOK_SECRET` | Secreto runtime para verificar firmas. |
 | `RESEND_API_KEY` | Secreto runtime; dejar vacío durante migración para conservar el modo simulado. |
-| `CONTACT_TO`, `CONTACT_FROM` | Configuración runtime; `CONTACT_TO` puede considerarse privado. |
+| `CONTACT_TO`, `CONTACT_FROM` | Configuración runtime del aviso de Contacto. Para correo real, ambos son obligatorios y `CONTACT_FROM` debe usar un dominio verificado; `@resend.dev` se rechaza. |
 | `MAIL_FROM`, `MAIL_LINKS_URL`, `MAIL_PERMITIDOS`, `MAIL_RESPUESTAS_DOMINIO`, `MAIL_COPIA_RESPUESTAS` | Configuración runtime; tratar direcciones/listas como privadas. `MAIL_LINKS_URL=https://fedesconsultora.com`. |
 
 No agregar `RESEND_TEST_BASE_URL` a producción: sólo permite un mock HTTP local para integración y acepta loopback únicamente. No activar correos reales por el solo hecho de migrar. No habilitar indexación.
