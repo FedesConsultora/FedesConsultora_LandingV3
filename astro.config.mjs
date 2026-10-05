@@ -15,8 +15,13 @@ export default defineConfig({
   session: false,
   integrations: [
     sitemap({
-      // Nosotros está en construcción; el panel y las landings privadas, fuera del sitemap.
-      filter: (page) => !page.includes('/nosotros') && !page.includes('/admin') && !page.includes('/diagnostico'),
+      // Nosotros y los legales siguen en construcción; panel/landings privadas nunca van al sitemap.
+      filter: (page) =>
+        !page.includes('/nosotros') &&
+        !page.includes('/privacidad') &&
+        !page.includes('/terminos-y-condiciones') &&
+        !page.includes('/admin') &&
+        !page.includes('/diagnostico'),
     }),
   ],
   // El chequeo de origen de los formularios lo hace src/middleware.ts, porque la baja en un
