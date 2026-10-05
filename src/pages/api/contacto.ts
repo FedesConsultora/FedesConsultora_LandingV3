@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
 import { hasDb as dbConfigured } from '../../lib/db';
-import { registrarFormulario } from '../../lib/leads';
+import { actualizarEstadoFormulario, registrarFormulario } from '../../lib/leads';
+import { runtimeEnv } from '../../lib/runtime-env';
 
 // Único endpoint del formulario de Contacto. Guarda el lead en la base (fuente de verdad
 // para el panel /admin) y, además, intenta avisar por mail con Resend. Si el mail falla,
@@ -17,7 +18,43 @@ const json = (body: object, status = 200) =>
 const REQUIRED = ['nombre', 'empresa', 'email', 'tamano', 'resolver'] as const;
 
 export const POST: APIRoute = async ({ request }) => {
-  const data = await request.formData();
+  const contentType = request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
+  if (contentType !== 'multipart/form-data' && contentType !== 'application/x-www-form-urlencoded') {
+    return json({ ok: false, error: 'unsupported_content_type' }, 415);
+  }
+  const reader = request.body?.getReader();
+  if (!reader) return json({ ok: false, error: 'invalid_body' }, 400);
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 256 * 1024) {
+        await reader.cancel();
+        return json({ ok: false, error: 'body_too_large' }, 413);
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'BodySizeLimitError' || error.message.startsWith('Body size limit exceeded:'))) {
+      return json({ ok: false, error: 'body_too_large' }, 413);
+    }
+    return json({ ok: false, error: 'invalid_body' }, 400);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  let data: FormData;
+  try {
+    data = await new Response(bytes, { headers: { 'content-type': request.headers.get('content-type')! } }).formData();
+  } catch {
+    return json({ ok: false, error: 'invalid_body' }, 400);
+  }
   const get = (k: string) => String(data.get(k) ?? '').trim().slice(0, 2000);
 
   // Campo señuelo: si viene completo es un bot. Respondemos ok sin enviar nada.
@@ -41,15 +78,30 @@ export const POST: APIRoute = async ({ request }) => {
     comentarios: get('comentarios') || null,
   };
 
-  const apiKey = import.meta.env.RESEND_API_KEY;
   const hasDb = dbConfigured();
+  const apiKey = runtimeEnv('RESEND_API_KEY');
 
-  // 1. Intentar el mail (best-effort: si falla, no se corta el flujo).
+  if (!hasDb) {
+    // Local sin servicios: permite revisar el formulario, pero nunca imprime datos personales.
+    if (!apiKey && import.meta.env.DEV) return json({ ok: true, dev: true });
+    return json({ ok: false, error: 'not_configured' }, 500);
+  }
+
+  // Primero persistir el contacto. Un fallo de Neon debe impedir el aviso externo para que no
+  // haya un éxito aparente sin lead en el pipeline.
+  let formulario: { leadId: number; formId: number };
+  try {
+    formulario = await registrarFormulario({ ...fields, resend_status: apiKey ? 'pending' : 'skipped' });
+  } catch {
+    console.error(JSON.stringify({ event: 'contact_persist_failed' }));
+    return json({ ok: false, error: 'save_failed' }, 500);
+  }
+
+  // El correo es un aviso best-effort; la solicitud ya quedó guardada.
   let resendStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
-  let resendOk = false;
   if (apiKey) {
-    const to = import.meta.env.CONTACT_TO || 'info@fedesconsultora.com';
-    const from = import.meta.env.CONTACT_FROM || 'Web Fedes <onboarding@resend.dev>';
+    const to = runtimeEnv('CONTACT_TO') || 'info@fedesconsultora.com';
+    const from = runtimeEnv('CONTACT_FROM') || 'Web Fedes <onboarding@resend.dev>';
     const rows: [string, string][] = [
       ['Nombre y apellido', fields.nombre],
       ['Empresa', fields.empresa],
@@ -76,41 +128,23 @@ export const POST: APIRoute = async ({ request }) => {
         text,
       });
       if (error) {
-        console.error('[contacto] Resend error', error);
+        console.error(JSON.stringify({ event: 'contact_mail_failed', error: 'provider_error' }));
         resendStatus = 'failed';
       } else {
         resendStatus = 'sent';
-        resendOk = true;
       }
-    } catch (e) {
-      console.error('[contacto] Resend exception', e);
+    } catch {
+      console.error(JSON.stringify({ event: 'contact_mail_failed', error: 'provider_exception' }));
       resendStatus = 'failed';
     }
   }
 
-  // 2. Guardar el lead en el pipeline, sea cual sea el resultado del mail. Si el email ya existe,
-  // el envío se suma a ese lead en lugar de duplicarlo (ver registrarFormulario).
-  let dbOk = false;
-  if (hasDb) {
+  if (apiKey) {
     try {
-      await registrarFormulario({ ...fields, resend_status: resendStatus });
-      dbOk = true;
-    } catch (e) {
-      console.error('[contacto] Error al guardar el lead en la base', e);
+      await actualizarEstadoFormulario(formulario.formId, resendStatus);
+    } catch {
+      console.error(JSON.stringify({ event: 'contact_status_update_failed', form_id: formulario.formId }));
     }
-  }
-
-  if (!hasDb && !apiKey) {
-    // Ni base ni mail configurados: solo se acepta en desarrollo local, para poder probar el formulario.
-    if (import.meta.env.DEV) {
-      console.log('[contacto] (sin POSTGRES_URL ni RESEND_API_KEY)', fields);
-      return json({ ok: true, dev: true });
-    }
-    return json({ ok: false, error: 'not_configured' }, 500);
-  }
-
-  if (!dbOk && !resendOk) {
-    return json({ ok: false, error: 'send_failed' }, 502);
   }
   return json({ ok: true });
 };

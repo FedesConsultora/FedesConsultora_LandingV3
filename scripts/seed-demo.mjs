@@ -88,4 +88,4 @@ for (const l of leads) {
 }
 
 console.log(`Datos de prueba cargados: ${leads.length} leads ficticios${borrados ? ` (se reemplazaron ${borrados} anteriores)` : ''}.`);
-if (link) console.log(`Landing de prueba entregada: ${link}`);
+if (link) console.log('Landing ficticia creada; abrí el link desde el panel. El token no se imprime.');

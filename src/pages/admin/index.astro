@@ -37,8 +37,8 @@ if (hasDb()) {
   try {
     const [p, k, embudo, semanas] = await Promise.all([pendientes(), indicadores(), embudoPipeline(), leadsPorSemana()]);
     datos = { p, k, embudo, semanas };
-  } catch (e) {
-    console.error('[admin] Error de conexión a la base', e);
+  } catch {
+    console.error(JSON.stringify({ event: 'admin_dashboard_db_failed' }));
     dbError = 'No pudimos conectar con la base de datos. Revisá que las migraciones estén aplicadas (npm run db:migrate).';
   }
 } else {

@@ -53,17 +53,14 @@ const get = (path, headers = ADMIN) => fetch(`${BASE}${path}`, { headers, redire
 const envios = (leadId) => sql`SELECT * FROM envios WHERE lead_id = ${leadId} ORDER BY id`;
 const plantilla = async (clave) => (await sql`SELECT * FROM plantillas_mail WHERE clave = ${clave}`)[0];
 const texto = async (r) => r.text();
-const firmar = (tipo, data) => {
+const eventoFirmado = (tipo, data, id = `msg_${randomBytes(8).toString('hex')}`) => {
   const payload = JSON.stringify({ type: tipo, created_at: new Date().toISOString(), data });
-  const id = `msg_${randomBytes(8).toString('hex')}`;
   const ts = new Date();
   const firma = new Webhook(process.env.RESEND_WEBHOOK_SECRET).sign(id, ts, payload);
-  return fetch(`${BASE}/api/webhooks/resend`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'svix-id': id, 'svix-timestamp': String(Math.floor(ts / 1000)), 'svix-signature': firma },
-    body: payload,
-  });
+  return { id, payload, headers: { 'Content-Type': 'application/json', 'svix-id': id, 'svix-timestamp': String(Math.floor(ts / 1000)), 'svix-signature': firma } };
 };
+const enviarEvento = (e) => fetch(`${BASE}/api/webhooks/resend`, { method: 'POST', headers: e.headers, body: e.payload });
+const firmar = (tipo, data) => enviarEvento(eventoFirmado(tipo, data));
 // Crea una landing entregable (etapas 1 y 2 aprobadas) para un lead. Devuelve el id.
 async function landingLista(leadId) {
   const r = await post(`/admin/leads/${leadId}`, { accion: 'crear_landing' });
@@ -211,10 +208,13 @@ try {
   await sql`UPDATE leads SET rebote_el = NULL WHERE id = ${lead.id}`;
 
   const recibido = { email_id: `rcv_${randomBytes(6).toString('hex')}`, from: `Paula Ficticia <${EMAILS[0]}>`, to: [`respuestas+${manual.id}@r.ejemplo.test`], received_for: [], subject: 'Re: Seguimiento', message_id: '<prueba@ejemplo.test>', attachments: [{ filename: 'nota.pdf', size: 2048 }] };
-  r = await firmar('email.received', recibido);
-  await firmar('email.received', recibido); // el mismo aviso dos veces
+  const recibidoDuplicado = eventoFirmado('email.received', recibido);
+  const concurrentes = await Promise.all([enviarEvento(recibidoDuplicado), enviarEvento(recibidoDuplicado)]);
+  r = await enviarEvento(recibidoDuplicado); // replay posterior al procesamiento
   const recibidos = await sql`SELECT * FROM mensajes_recibidos WHERE resend_id = ${recibido.email_id}`;
-  check('la respuesta queda asociada al lead y al mail que responde', recibidos.length === 1 && recibidos[0].lead_id === lead.id && recibidos[0].envio_id === manual.id);
+  const eventosRecibidos = await sql`SELECT event_id, estado, intentos FROM resend_webhook_events WHERE event_id = ${recibidoDuplicado.id}`;
+  check('evento duplicado/concurrente se procesa una sola vez', concurrentes.every((x) => [200, 503].includes(x.status)) && r.status === 200 && eventosRecibidos.length === 1 && eventosRecibidos[0].estado === 'done');
+  check('la respuesta queda asociada una vez al lead y al mail que responde', recibidos.length === 1 && recibidos[0].lead_id === lead.id && recibidos[0].envio_id === manual.id);
   check('adjuntos: solo nombre y tamaño', JSON.stringify(recibidos[0]?.adjuntos) === JSON.stringify([{ nombre: 'nota.pdf', tamano: 2048 }]));
   html = await texto(await get('/admin/mails'));
   check('aparece en la bandeja como no leída, con el contador en el menú', html.includes('Re: Seguimiento') && html.includes('aria-label="Sin leer"') && /aria-label="\d+ sin leer"/.test(html));

@@ -191,7 +191,7 @@ type EnvioFormulario = {
   resolver: string;
   ruta_referido: string | null;
   comentarios: string | null;
-  resend_status: 'sent' | 'failed' | 'skipped';
+  resend_status: 'sent' | 'failed' | 'skipped' | 'pending';
 };
 
 // Envío del formulario de Contacto. Si el email ya existe, se suma al lead existente sin pisar
@@ -222,12 +222,13 @@ export async function registrarFormulario(f: EnvioFormulario) {
     RETURNING id, estado, (SELECT estado FROM previo) AS estado_anterior
   `;
   const cambioEstado = lead.estado !== lead.estado_anterior;
-  await db().transaction([
+  const [formulario] = await db().transaction([
     db()`
       INSERT INTO formularios (lead_id, nombre, empresa, email, cargo, whatsapp, tamano, resolver, ruta_referido,
                                comentarios, resend_status)
       VALUES (${lead.id}, ${f.nombre}, ${f.empresa}, ${f.email}, ${f.cargo}, ${f.whatsapp}, ${f.tamano}, ${f.resolver},
               ${f.ruta_referido}, ${f.comentarios}, ${f.resend_status})
+      RETURNING id
     `,
     ...(cambioEstado
       ? [
@@ -238,7 +239,11 @@ export async function registrarFormulario(f: EnvioFormulario) {
         ]
       : []),
   ]);
-  return lead.id as number;
+  return { leadId: lead.id as number, formId: formulario[0].id as number };
+}
+
+export async function actualizarEstadoFormulario(formId: number, estado: 'sent' | 'failed' | 'skipped') {
+  await db()`UPDATE formularios SET resend_status = ${estado} WHERE id = ${formId}`;
 }
 
 // Carga (o cambia) la fecha de la sesión de diagnóstico. Si el lead todavía estaba en la etapa de

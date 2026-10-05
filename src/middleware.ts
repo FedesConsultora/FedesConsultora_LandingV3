@@ -6,7 +6,7 @@ const PUBLIC_ADMIN_PATHS = new Set(['/admin/login', '/api/admin/login']);
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const json = (body: object, status: number) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } });
 
 // El token CSRF llega en el encabezado (pedidos con fetch) o en el campo "csrf" (formularios HTML).
 async function csrfFrom(request: Request) {
@@ -45,41 +45,57 @@ const PRIVADA_HEADERS = {
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
-
-  if (origenProhibido(context.request, context.url)) {
-    return new Response(`Cross-site ${context.request.method} form submissions are forbidden`, { status: 403 });
-  }
-
-  // Landings privadas y links de los mails (/m/...): mismas cabeceras de privacidad.
-  if (pathname === '/diagnostico' || pathname.startsWith('/diagnostico/') || pathname.startsWith('/m/')) {
-    const res = await next();
-    for (const [k, v] of Object.entries(PRIVADA_HEADERS)) res.headers.set(k, v);
-    return res;
-  }
-
   const isAdminArea = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
-  if (!isAdminArea) return next();
-
+  const isPrivatePath = pathname === '/diagnostico' || pathname.startsWith('/diagnostico/') || pathname.startsWith('/m/');
+  const isPrivateResponse = isAdminArea || isPrivatePath;
   const noStore = (res: Response) => {
-    // Nada del panel se guarda en cachés intermedias ni en el historial del navegador.
-    res.headers.set('Cache-Control', 'no-store');
+    res.headers.set('Cache-Control', 'private, no-store');
+    if (isAdminArea) res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
     return res;
   };
 
-  if (PUBLIC_ADMIN_PATHS.has(pathname)) return noStore(await next());
+  try {
+    if (origenProhibido(context.request, context.url)) {
+      return noStore(new Response(`Cross-site ${context.request.method} form submissions are forbidden`, { status: 403 }));
+    }
 
-  const token = context.cookies.get(SESSION_COOKIE)?.value;
-  const admin = isAdminConfigured() ? await getSession(token) : null;
+    // Landings privadas y links de los mails (/m/...): mismas cabeceras de privacidad.
+    if (isPrivatePath) {
+      const res = await next();
+      for (const [k, v] of Object.entries(PRIVADA_HEADERS)) res.headers.set(k, v);
+      return res;
+    }
 
-  if (!admin) {
-    if (pathname.startsWith('/api/admin')) return json({ ok: false, error: 'unauthorized' }, 401);
-    return context.redirect(`/admin/login?next=${encodeURIComponent(pathname)}`);
+    if (!isAdminArea) return await next();
+
+    if (PUBLIC_ADMIN_PATHS.has(pathname)) return noStore(await next());
+
+    const token = context.cookies.get(SESSION_COOKIE)?.value;
+    const admin = isAdminConfigured() ? await getSession(token) : null;
+
+    if (!admin) {
+      if (pathname.startsWith('/api/admin')) return json({ ok: false, error: 'unauthorized' }, 401);
+      return noStore(context.redirect(`/admin/login?next=${encodeURIComponent(pathname)}`));
+    }
+
+    if (!SAFE_METHODS.has(context.request.method) && !csrfValid(token!, await csrfFrom(context.request))) {
+      return json({ ok: false, error: 'csrf' }, 403);
+    }
+
+    context.locals.admin = admin;
+    return noStore(await next());
+  } catch (error) {
+    // No propagar URLs privadas (que pueden incluir tokens) ni detalles del request al logger
+    // interno de Astro Node, que imprime request.url junto con errores no controlados.
+    const ruta = isAdminArea ? 'admin' : pathname.startsWith('/diagnostico/') ? 'landing_privada' : pathname.startsWith('/m/') ? 'mail_tracking' : pathname.startsWith('/api/') ? 'api' : 'public';
+    const tipo = error instanceof Error ? error.name : 'UnknownError';
+    console.error(JSON.stringify({ event: 'request_failed', route: ruta, error: tipo }));
+    const headers = new Headers({ 'Content-Type': 'text/plain; charset=utf-8' });
+    if (isPrivateResponse) headers.set('Cache-Control', 'private, no-store');
+    if (isPrivatePath) {
+      headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      headers.set('Referrer-Policy', 'no-referrer');
+    }
+    return new Response('Internal Server Error', { status: 500, headers });
   }
-
-  if (!SAFE_METHODS.has(context.request.method) && !csrfValid(token!, await csrfFrom(context.request))) {
-    return json({ ok: false, error: 'csrf' }, 403);
-  }
-
-  context.locals.admin = admin;
-  return noStore(await next());
 });
