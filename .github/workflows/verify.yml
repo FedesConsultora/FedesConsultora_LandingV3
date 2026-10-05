@@ -22,4 +22,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node --check scripts/verify-integration.mjs
+      - run: node --check scripts/verificar-webhook-sin-api-key.mjs
       - run: npm run verify
