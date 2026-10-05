@@ -178,6 +178,8 @@ try {
   mockResend = await iniciarMockResend();
   process.env.RESEND_API_KEY = 're_ci_fake_only';
   process.env.RESEND_TEST_BASE_URL = mockResend.origin;
+  process.env.CONTACT_TO = 'ci-contact@example.test';
+  process.env.CONTACT_FROM = 'Web Fedes CI <contacto@example.test>';
   process.env.MAIL_COPIA_RESPUESTAS = 'ci-release@example.test';
   servidor = arrancarServidor();
   servidorParalelo = arrancarServidor(4323);
