@@ -200,46 +200,54 @@ type EnvioFormulario = {
 // uno más avanzado queda como está. El envío completo se guarda en `formularios`.
 export async function registrarFormulario(f: EnvioFormulario) {
   const tamano = tamanoDesdeFormulario(f.tamano);
-  const [lead] = await db()`
-    WITH previo AS (SELECT id, estado FROM leads WHERE lower(email) = lower(${f.email}))
-    INSERT INTO leads (nombre, empresa, cargo, email, whatsapp, tamano, resolver, ruta_referido, comentarios,
-                       fuente, estado, consentimiento_el, consentimiento_origen, consentimiento_texto)
-    VALUES (${f.nombre}, ${f.empresa}, ${f.cargo}, ${f.email.toLowerCase()}, ${f.whatsapp}, ${tamano}, ${f.resolver},
-            ${f.ruta_referido}, ${f.comentarios}, 'web', 'respondio', now(), ${CONSENTIMIENTO_WEB.origen},
-            ${CONSENTIMIENTO_WEB.texto})
-    ON CONFLICT ((lower(email))) WHERE email IS NOT NULL DO UPDATE SET
-      cargo = COALESCE(leads.cargo, EXCLUDED.cargo),
-      whatsapp = COALESCE(leads.whatsapp, EXCLUDED.whatsapp),
-      tamano = CASE WHEN leads.tamano = 'desconocido' THEN EXCLUDED.tamano ELSE leads.tamano END,
-      resolver = EXCLUDED.resolver,
-      ruta_referido = EXCLUDED.ruta_referido,
-      estado = CASE WHEN leads.estado IN ('identificado', 'contactado', 'perdido') THEN 'respondio' ELSE leads.estado END,
-      motivo_perdido = CASE WHEN leads.estado = 'perdido' THEN NULL ELSE leads.motivo_perdido END,
-      consentimiento_el = EXCLUDED.consentimiento_el,
-      consentimiento_origen = EXCLUDED.consentimiento_origen,
-      consentimiento_texto = EXCLUDED.consentimiento_texto,
-      actualizado_el = now()
-    RETURNING id, estado, (SELECT estado FROM previo) AS estado_anterior
-  `;
-  const cambioEstado = lead.estado !== lead.estado_anterior;
-  const [formulario] = await db().transaction([
-    db()`
+  // Lead, envío del formulario e historial se escriben en una sola sentencia PostgreSQL.
+  // Si cualquier parte falla, PostgreSQL revierte todo y /api/contacto nunca deja un lead
+  // parcialmente creado/actualizado mientras responde save_failed.
+  const [resultado] = await db()`
+    WITH previo AS (
+      SELECT id, estado FROM leads WHERE lower(email) = lower(${f.email})
+    ),
+    upsert_lead AS (
+      INSERT INTO leads (nombre, empresa, cargo, email, whatsapp, tamano, resolver, ruta_referido, comentarios,
+                         fuente, estado, consentimiento_el, consentimiento_origen, consentimiento_texto)
+      VALUES (${f.nombre}, ${f.empresa}, ${f.cargo}, ${f.email.toLowerCase()}, ${f.whatsapp}, ${tamano}, ${f.resolver},
+              ${f.ruta_referido}, ${f.comentarios}, 'web', 'respondio', now(), ${CONSENTIMIENTO_WEB.origen},
+              ${CONSENTIMIENTO_WEB.texto})
+      ON CONFLICT ((lower(email))) WHERE email IS NOT NULL DO UPDATE SET
+        cargo = COALESCE(leads.cargo, EXCLUDED.cargo),
+        whatsapp = COALESCE(leads.whatsapp, EXCLUDED.whatsapp),
+        tamano = CASE WHEN leads.tamano = 'desconocido' THEN EXCLUDED.tamano ELSE leads.tamano END,
+        resolver = EXCLUDED.resolver,
+        ruta_referido = EXCLUDED.ruta_referido,
+        estado = CASE WHEN leads.estado IN ('identificado', 'contactado', 'perdido') THEN 'respondio' ELSE leads.estado END,
+        motivo_perdido = CASE WHEN leads.estado = 'perdido' THEN NULL ELSE leads.motivo_perdido END,
+        consentimiento_el = EXCLUDED.consentimiento_el,
+        consentimiento_origen = EXCLUDED.consentimiento_origen,
+        consentimiento_texto = EXCLUDED.consentimiento_texto,
+        actualizado_el = now()
+      RETURNING id, estado
+    ),
+    formulario AS (
       INSERT INTO formularios (lead_id, nombre, empresa, email, cargo, whatsapp, tamano, resolver, ruta_referido,
                                comentarios, resend_status)
-      VALUES (${lead.id}, ${f.nombre}, ${f.empresa}, ${f.email}, ${f.cargo}, ${f.whatsapp}, ${f.tamano}, ${f.resolver},
-              ${f.ruta_referido}, ${f.comentarios}, ${f.resend_status})
-      RETURNING id
-    `,
-    ...(cambioEstado
-      ? [
-          db()`
-            INSERT INTO historial_estados (lead_id, estado_anterior, estado_nuevo, origen)
-            VALUES (${lead.id}, ${lead.estado_anterior}, ${lead.estado}, 'formulario web')
-          `,
-        ]
-      : []),
-  ]);
-  return { leadId: lead.id as number, formId: formulario[0].id as number };
+      SELECT u.id, ${f.nombre}, ${f.empresa}, ${f.email}, ${f.cargo}, ${f.whatsapp}, ${f.tamano}, ${f.resolver},
+             ${f.ruta_referido}, ${f.comentarios}, ${f.resend_status}
+      FROM upsert_lead u
+      RETURNING id, lead_id
+    ),
+    historial AS (
+      INSERT INTO historial_estados (lead_id, estado_anterior, estado_nuevo, origen)
+      SELECT u.id, p.estado, u.estado, 'formulario web'
+      FROM upsert_lead u
+      LEFT JOIN previo p ON true
+      WHERE u.estado IS DISTINCT FROM p.estado
+    )
+    SELECT u.id AS lead_id, f.id AS form_id
+    FROM upsert_lead u
+    JOIN formulario f ON f.lead_id = u.id
+  `;
+  if (!resultado) throw new Error('No se pudo registrar el formulario.');
+  return { leadId: resultado.lead_id as number, formId: resultado.form_id as number };
 }
 
 export async function actualizarEstadoFormulario(formId: number, estado: 'sent' | 'failed' | 'skipped') {
