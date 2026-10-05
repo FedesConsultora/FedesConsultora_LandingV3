@@ -30,6 +30,9 @@ export default defineConfig({
   },
   redirects: {
     '/agencia': '/consultoria',
+    '/consultora': '/consultoria',
+    '/hablemos': '/contacto',
+    '/onboarding-empresas': '/onboardings',
   },
   vite: {
     plugins: [tailwindcss()],
