@@ -15,7 +15,10 @@ for (const path of [
     check(`GET ${path}`, response.status === 200, `HTTP ${response.status}`);
     if (path === '/sitemap-index.xml') {
       const body = await response.text();
-      check('sitemap excluye admin y landings privadas', !/\/admin|\/diagnostico\//.test(body));
+      check(
+        'sitemap excluye admin, landings privadas y páginas provisionales',
+        !/\/admin|\/diagnostico\/|\/nosotros|\/privacidad|\/terminos-y-condiciones/.test(body),
+      );
     }
   } catch {
     check(`GET ${path}`, false, 'sin respuesta');
