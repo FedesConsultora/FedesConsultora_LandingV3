@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { hasDb as dbConfigured } from '../../lib/db';
+import { honeypotCompleto, parseContactoForm } from '../../lib/contacto-form';
 import { actualizarEstadoFormulario, registrarFormulario } from '../../lib/leads';
 import { crearClienteResend } from '../../lib/resend-client';
 import { runtimeEnv } from '../../lib/runtime-env';
@@ -14,8 +15,6 @@ const esc = (s: string) =>
 
 const json = (body: object, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-
-const REQUIRED = ['nombre', 'empresa', 'email', 'tamano', 'resolver'] as const;
 
 export const POST: APIRoute = async ({ request }) => {
   const contentType = request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
@@ -55,28 +54,12 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return json({ ok: false, error: 'invalid_body' }, 400);
   }
-  const get = (k: string) => String(data.get(k) ?? '').trim().slice(0, 2000);
+  // Campo señuelo: si viene completo es un bot. Respondemos ok sin persistir ni enviar nada.
+  if (honeypotCompleto(data)) return json({ ok: true });
 
-  // Campo señuelo: si viene completo es un bot. Respondemos ok sin enviar nada.
-  if (get('web')) return json({ ok: true });
-
-  for (const k of REQUIRED) if (!get(k)) return json({ ok: false, error: 'missing_' + k }, 400);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(get('email'))) return json({ ok: false, error: 'invalid_email' }, 400);
-  if (!data.get('privacidad')) return json({ ok: false, error: 'privacy' }, 400);
-
-  const fields = {
-    nombre: get('nombre'),
-    empresa: get('empresa'),
-    // Cargo y WhatsApp se sacaron del formulario (29/09): quedan null salvo que se agreguen de nuevo.
-    cargo: get('cargo') || null,
-    email: get('email'),
-    whatsapp: get('whatsapp') || null,
-    tamano: get('tamano') || null,
-    resolver: get('resolver'),
-    // Si llegó con "?ruta=" desde Onboardings o Consultoría (puede diferir de lo que terminó eligiendo).
-    ruta_referido: get('ruta_referido') || null,
-    comentarios: get('comentarios') || null,
-  };
+  const parsed = parseContactoForm(data);
+  if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+  const fields = parsed.fields;
 
   const hasDb = dbConfigured();
   const apiKey = runtimeEnv('RESEND_API_KEY');
