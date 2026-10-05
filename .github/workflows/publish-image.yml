@@ -22,6 +22,7 @@ jobs:
     env:
       IMAGE: ghcr.io/fedesconsultora/fedesconsultora-landingv3
       IMAGE_TAG: sha-${{ github.sha }}
+      PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +38,7 @@ jobs:
           docker build
           --build-arg PUBLIC_SITE_URL=https://fedesconsultora.com
           --build-arg PUBLIC_INDEXABLE=false
-          --build-arg PUBLIC_GA_ID=
+          --build-arg PUBLIC_GA_ID="${PUBLIC_GA_ID}"
           --build-arg PUBLIC_BUILD_ID=${GITHUB_SHA}
           --build-arg VCS_REF=${GITHUB_SHA}
           --tag "${IMAGE}:${IMAGE_TAG}" .
@@ -100,8 +101,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish immutable SHA tag
-        id: push
+      - name: Refuse to overwrite an existing immutable SHA tag
         shell: bash
         run: |
           set -euo pipefail
@@ -109,6 +109,11 @@ jobs:
             echo "Refusing to overwrite existing image tag ${IMAGE_TAG}. Deploy its digest or publish a new commit." >&2
             exit 1
           fi
+      - name: Publish immutable SHA tag
+        id: push
+        shell: bash
+        run: |
+          set -euo pipefail
           push_log="$(mktemp)"
           docker push "${IMAGE}:${IMAGE_TAG}" | tee "$push_log"
           digest="$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' "$push_log" | tail -1)"
