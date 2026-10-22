@@ -37,6 +37,8 @@ COPY --from=build --chown=node:node /app/db/migrations ./db/migrations
 COPY --from=build --chown=node:node /app/scripts/migrate.mjs ./scripts/migrate.mjs
 COPY --from=build --chown=node:node /app/scripts/create-admin.mjs ./scripts/create-admin.mjs
 COPY --from=build --chown=node:node /app/scripts/lib/split-sql.mjs ./scripts/lib/split-sql.mjs
+COPY --from=build --chown=node:node /app/scripts/depurar.mjs ./scripts/depurar.mjs
+COPY --from=build --chown=node:node /app/scripts/lib/depuracion.mjs ./scripts/lib/depuracion.mjs
 
 USER node
 EXPOSE 4321

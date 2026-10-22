@@ -17,7 +17,8 @@ export const organization = {
     'Consultora de negocios que también ejecuta. Audita cómo se posiciona, vende y opera una empresa, define una hoja de ruta y la ejecuta con equipo propio, con tecnología propia cuando hace falta.',
   email: 'info@fedesconsultora.com',
   address: { '@type': 'PostalAddress', addressLocality: 'Buenos Aires', addressCountry: 'AR' },
-  sameAs: [contactChannels.linkedin.href],
+  // Perfiles oficiales: ayudan a Google a armar el panel de la marca. Instagram es el publicado en /campo.
+  sameAs: [contactChannels.linkedin.href, 'https://www.instagram.com/fedesconsultora'],
   knowsAbout: ['Consultoría de negocios', 'Estrategia', 'Procesos', 'Tecnología'],
   contactPoint: {
     '@type': 'ContactPoint',

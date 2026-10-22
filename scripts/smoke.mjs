@@ -8,7 +8,7 @@ const check = (name, ok, detail = '') => {
 
 for (const path of [
   '/', '/consultoria', '/onboardings', '/casos', '/contacto', '/privacidad',
-  '/terminos-y-condiciones', '/robots.txt', '/sitemap-index.xml',
+  '/terminos-y-condiciones', '/robots.txt', '/sitemap-index.xml', '/campo',
 ]) {
   try {
     const response = await fetch(`${base}${path}`, { redirect: 'manual' });
@@ -17,7 +17,7 @@ for (const path of [
       const body = await response.text();
       check(
         'sitemap excluye admin, landings privadas y páginas provisionales',
-        !/\/admin|\/diagnostico\/|\/nosotros|\/privacidad|\/terminos-y-condiciones/.test(body),
+        !/\/admin|\/diagnostico\/|\/nosotros|\/privacidad|\/terminos-y-condiciones|\/campo/.test(body),
       );
     }
   } catch {
@@ -39,6 +39,33 @@ for (const [legacy, target] of [
       `HTTP ${response.status}`);
   } catch {
     check(`${legacy} redirige a ${target}`, false, 'sin respuesta');
+  }
+}
+
+// QR de los avisos en revistas: 302 (temporal) hacia /campo con sus UTM, y textos según el origen.
+for (const origen of ['larural', 'angus']) {
+  try {
+    const response = await fetch(`${base}/r/${origen}`, { redirect: 'manual' });
+    const location = new URL(response.headers.get('location') || '/', base);
+    check(`/r/${origen} redirige con 302 a /campo`,
+      response.status === 302 && location.pathname === '/campo' && location.searchParams.get('utm_source') === origen,
+      `HTTP ${response.status}`);
+  } catch {
+    check(`/r/${origen} redirige con 302 a /campo`, false, 'sin respuesta');
+  }
+}
+
+for (const [query, esperado, etiqueta] of [
+  ['?utm_source=larural', 'Marketing', true],
+  ['?utm_source=angus', 'El rodeo lo manejás vos.', true],
+  ['', 'Que tu empresa funcione aunque estés en el campo.', false],
+]) {
+  try {
+    const body = await (await fetch(`${base}/campo${query}`)).text();
+    check(`/campo${query || ' (general)'} muestra sus textos`,
+      body.includes(esperado) && body.includes('Viste nuestro aviso en') === etiqueta);
+  } catch {
+    check(`/campo${query || ' (general)'} muestra sus textos`, false, 'sin respuesta');
   }
 }
 

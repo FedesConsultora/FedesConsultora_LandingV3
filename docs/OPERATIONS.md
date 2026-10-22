@@ -17,6 +17,11 @@ Los logs de la app van a stdout/stderr y Docker los rota a 3 archivos de 10 MB. 
 ## Tareas habituales
 
 - Migración pendiente: revisar el target Neon, confirmar backup/PITR, correr primero `docker compose --env-file .env.production run --rm --no-deps fedesconsultora-web npm run db:migrate -- --dry-run`, luego ejecutar migración aprobada y revisar logs.
+- Depuración de datos personales (Política de Privacidad, 24 meses; reglas en `scripts/lib/depuracion.mjs`): borra prospectos sin actividad hace 24 meses (no toca los leads en `onboarding`), las visitas, aperturas y clics de más de 24 meses, los mensajes sin lead, los eventos de webhook y los intentos fallidos viejos, y deja el resumen (solo cantidades) en `auditoria` con `accion = 'depurar'`.
+  - Primera vez: confirmar backup/PITR de Neon `main` y correr `docker compose --env-file .env.production run --rm --no-deps fedesconsultora-web npm run db:depurar -- --dry-run` para ver cuánto borraría.
+  - Programarla una vez por día en el cron del usuario de deploy del VPS (`crontab -e`), desde el directorio del Compose:
+    `15 4 * * * cd <directorio del compose> && docker compose --env-file .env.production run --rm --no-deps fedesconsultora-web npm run db:depurar >> <directorio del compose>/logs/depuracion.log 2>&1`
+  - El log solo tiene cantidades, nunca datos de leads. Si una ejecución falla, la transacción no deja nada a medias y la siguiente lo reintenta.
 - Admin: `docker compose --env-file .env.production run --rm --no-deps --interactive fedesconsultora-web npm run admin:crear`. No pasar contraseñas en línea de comandos.
 - Smoke local/proxy: `SMOKE_BASE=http://127.0.0.1:4321 npm run smoke`; desde fuera, `PROXY_TEST_BASE=https://fedesconsultora.com npm run smoke:proxy` después de servir la ruta por el Nginx de prueba.
 - Mensajes: mantener `RESEND_API_KEY` ausente para simular. El modo real requiere autorización separada, dominio verificado, textos aprobados y `MAIL_PERMITIDOS` configurado durante pruebas controladas.

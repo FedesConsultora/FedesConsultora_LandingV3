@@ -167,6 +167,12 @@ const label = 'block font-display text-sm font-semibold';
         const res = await fetch(form.action, { method: 'POST', body: data });
         if (!res.ok) throw new Error(String(res.status));
 
+        // Conversión para GA4 y Google Ads (evento recomendado generate_lead). Solo la opción elegida
+        // en «¿Qué querés resolver?»: nunca nombre, mail ni otros datos del lead.
+        if (typeof window.gtag === 'function') {
+          window.gtag('event', 'generate_lead', { form_id: 'contacto', resolver: String(data.get('resolver') || '') });
+        }
+
         const nombre = String(data.get('nombre') || '').trim().split(' ')[0];
         transicionMsg.textContent = `¡Gracias${nombre ? ', ' + nombre : ''}! Ahora elegí un horario para tu sesión.`;
 

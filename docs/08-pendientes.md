@@ -2,7 +2,9 @@
 
 > **Nota de vigencia:** los registros anteriores documentan decisiones y despliegues históricos de V3 sobre Vercel. La arquitectura de producción vigente es Astro Node standalone en Docker, detrás del proxy Nginx central; Neon y Resend siguen externos. Los procedimientos actuales están en `docs/DEPLOY_VPS.md` y `docs/OPERATIONS.md`. Las migraciones `001–007` están aplicadas en producción y no se editan.
 
-Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. **Los textos legales sí bloquean el lanzamiento público con captación de datos y los mails reales**: no inventar contenido; mantener `PUBLIC_INDEXABLE=false` y `RESEND_API_KEY` ausente hasta su aprobación.
+Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. **Los textos legales sí bloquean los mails reales**: no inventar contenido; mantener `RESEND_API_KEY` ausente hasta su aprobación.
+
+**Indexación habilitada (decisión del 22/10/2026):** el sitio se publica con `PUBLIC_INDEXABLE=true` aunque los legales sigan pendientes. Privacidad, Términos y Nosotros conservan su `noindex` propio y siguen fuera del sitemap hasta tener el texto definitivo. Para volver a bloquear buscadores, crear la variable de repo `PUBLIC_INDEXABLE=false` y publicar una imagen nueva.
 
 ## Contenido
 
@@ -29,8 +31,29 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Agenda:** Google Calendar embebido vigente; cal.com queda como mejora futura cuando exista URL pública aprobada.
 - **Analítica:** instrumentación GA4 preparada, pero `PUBLIC_GA_ID` sigue sin definir. La V1 no tiene un Measurement ID versionado para reutilizar.
 - **Dominio:** `fedesconsultora.com`. Redirects de compatibilidad aprobados: `/agencia` y `/consultora` → `/consultoria`; `/hablemos` → `/contacto`; `/onboarding-empresas` → `/onboardings`.
-- **Páginas legales:** siguen pendientes de texto definitivo y revisión profesional. Hasta entonces: `PUBLIC_INDEXABLE=false`, páginas legales con `noindex` y mails reales desactivados.
+- **Páginas legales:** borrador publicado el 22/10/2026 en `/privacidad` y `/terminos-y-condiciones` (`src/content/legales.ts`), sobre la base de los textos de la web anterior (repo `FedesConsultora_Landing`, `src/pages/Legal`, 22/07/2026), adaptado a fedesconsultora.com: se quitó la app de Meta, «agencia», fedes.ai y soporte@fedes.ai, y se sumaron los datos que trata el sitio hoy (formulario, Neon, Resend, landings privadas, GA4, agenda de Google). Sigue pendiente la revisión de un abogado; hasta entonces ambas páginas mantienen `noindex`, quedan fuera del sitemap y los mails reales siguen desactivados.
+  - **Completado el 22/10/2026:** Fedes Solutions SRL, CUIT 30-71861095-4, domicilio legal Av. Luis María Campos 877, CABA (solo en las páginas legales, no como dirección de contacto); servidor VPS de DonWeb en Argentina (Neon, Resend y Google, en el exterior).
+  - **Propuestas a validar con el abogado:** conservación de 24 meses desde el último contacto para prospectos que no avanzan, relación comercial más 10 años para clientes y 24 meses para el registro de visitas, aperturas y clics; plazos de respuesta de 10 días corridos (acceso) y 5 días hábiles (rectificación y supresión), arts. 14 y 16 de la Ley 25.326; limitación de responsabilidad «en la medida en que lo permita la normativa», sin limitar la Ley 24.240; tribunales ordinarios de la CABA, salvo la jurisdicción que corresponda a consumidores; leyenda de la AAIP sobre el derecho de acceso.
+  - **Acciones fuera del texto:** inscribir la base de datos de leads en el Registro Nacional de Bases de Datos de la AAIP. La depuración a los 24 meses ya está implementada (`npm run db:depurar`, probada en la base de desarrollo el 22/10/2026); falta programarla en el cron del VPS según `docs/OPERATIONS.md`. Los clientes (`onboarding`) no se depuran solos: su plazo (relación + 10 años) se revisa a mano.
 - **Release externo:** falta ejecutar Neon CI aislado, publicar la imagen GHCR por SHA/digest y hacer rehearsal/cutover en el VPS según `docs/DEPLOY_VPS.md`.
+
+## Landing para el campo (`/campo`, `docs/10-landing-campo.md`)
+
+- **GA4:** definir `PUBLIC_GA_ID`. Sin él, los eventos `click_*` no se envían. En GA4, marcar `click_agendar` y `click_whatsapp` como eventos clave y registrar `origen` y `ubicacion` como dimensiones personalizadas.
+- **QA en dispositivos reales:** WhatsApp con el mensaje de cada origen en iPhone y Android; Llamar, Escribir y Seguir; vista previa del link en WhatsApp (requiere la URL pública); eventos en tiempo real en GA4.
+- **QR:** generarlos solo con `/r/larural` y `/r/angus` publicados y probados en producción, y escanear las pruebas impresas con dos celulares.
+- **Indexación:** hereda `PUBLIC_INDEXABLE`; hoy lleva `noindex` como el resto del sitio. No afecta a quien llega por QR.
+
+## Posicionamiento y Google Ads (fuera del código, en orden)
+
+Hasta el 22/10/2026, Google mostraba «No hay información disponible sobre esta página» porque producción servía `robots.txt` con `Disallow: /` y `noindex` en cada página.
+
+1. **Publicar:** merge a `main` y nueva imagen (`publish-image.yml` ya usa `PUBLIC_INDEXABLE=true`). Validar en producción que `robots.txt` muestre `Allow: /` y el `Sitemap:`, y que el Inicio no tenga `<meta name="robots">`.
+2. **GA4:** crear la propiedad, cargar el ID en la variable de repo `PUBLIC_GA_ID` y publicar otra imagen. Sin él no se miden visitas ni conversiones.
+3. **Google Search Console:** propiedad de dominio verificada por registro TXT en el DNS; enviar `https://fedesconsultora.com/sitemap-index.xml`; pedir la indexación del Inicio con «Inspeccionar URL». Importar la propiedad en Bing Webmaster Tools.
+4. **Perfil de empresa de Google:** empresa de servicios con zona de cobertura en Buenos Aires, sin dirección publicada. Mismo nombre, web, mail y horario que el sitio. Es lo que arma el panel de la marca al buscar «Fedes Consultora».
+5. **Google Ads:** vincular Ads con GA4, con etiquetado automático activo. Importar `generate_lead` (formulario de Contacto enviado) como conversión principal y `cta_agendar` (clic a Contacto) como secundaria. URL final de los anuncios: `https://fedesconsultora.com/contacto`. No usar precios ni «agencia» en los anuncios.
+6. **Datos estructurados:** confirmar si el teléfono (+54 9 221, La Plata) se publica para sumarlo al schema y al perfil de empresa.
 
 ## Fuera del sitio
 
@@ -75,7 +98,7 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
   1. Publicar y validar la imagen OCI por SHA/digest con `PUBLIC_INDEXABLE=false`.
   2. Hacer el cutover del vhost existente de `fedesconsultora.com` al contenedor siguiendo `docs/DEPLOY_VPS.md`, sin cambiar DNS salvo que el preflight detecte una desviación.
   3. Validar redirects, sitemap, robots, headers privados y smoke externo.
-  4. Resolver legales/contenido y recién entonces publicar otra imagen con `PUBLIC_INDEXABLE=true`.
+  4. Publicar otra imagen con `PUBLIC_INDEXABLE=true` (decidido el 22/10/2026 sin esperar los legales, que siguen con `noindex`).
   5. Enviar `https://fedesconsultora.com/sitemap-index.xml` a Google Search Console y Bing Webmaster Tools y habilitar GA4 si se configuró `PUBLIC_GA_ID`.
 - **Datos estructurados:** `Organization`/`ProfessionalService`, `WebSite`, `BreadcrumbList`, `ContactPage` y un `Service` por ruta con sus onboardings (sin precios). Usan solo datos de los docs. No incluyen teléfono: el WhatsApp publicado tiene característica 221 (La Plata) y hay que confirmar que coincida con «Buenos Aires».
 - **Metadatos:** título del Inicio acortado a 56 caracteres. La meta descripción de Consultoría (184 caracteres) se dejó tal cual figura en `docs/02-sitemap.md`, aunque Google puede cortarla cerca de los 155. Validar si se acorta.
