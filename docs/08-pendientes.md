@@ -32,6 +32,13 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Páginas legales:** siguen pendientes de texto definitivo y revisión profesional. Hasta entonces: `PUBLIC_INDEXABLE=false`, páginas legales con `noindex` y mails reales desactivados.
 - **Release externo:** falta ejecutar Neon CI aislado, publicar la imagen GHCR por SHA/digest y hacer rehearsal/cutover en el VPS según `docs/DEPLOY_VPS.md`.
 
+## Landing para el campo (`/campo`, `docs/10-landing-campo.md`)
+
+- **GA4:** definir `PUBLIC_GA_ID`. Sin él, los eventos `click_*` no se envían. En GA4, marcar `click_agendar` y `click_whatsapp` como eventos clave y registrar `origen` y `ubicacion` como dimensiones personalizadas.
+- **QA en dispositivos reales:** WhatsApp con el mensaje de cada origen en iPhone y Android; Llamar, Escribir y Seguir; vista previa del link en WhatsApp (requiere la URL pública); eventos en tiempo real en GA4.
+- **QR:** generarlos solo con `/r/larural` y `/r/angus` publicados y probados en producción, y escanear las pruebas impresas con dos celulares.
+- **Indexación:** hereda `PUBLIC_INDEXABLE`; hoy lleva `noindex` como el resto del sitio. No afecta a quien llega por QR.
+
 ## Fuera del sitio
 
 - Actualizar la dirección en la Política de Privacidad y en los Términos y Condiciones.

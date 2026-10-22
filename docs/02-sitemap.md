@@ -11,6 +11,8 @@
 | Contacto | `/contacto` | Texto completo | `06-contacto-y-nosotros.md` |
 | Nosotros | `/nosotros` | En construcción: URL reservada y fuera del menú | `06-contacto-y-nosotros.md` |
 
+Landing de campaña, fuera del menú y del sitemap: **Fedes para el campo** (`/campo`), con las redirecciones de QR `/r/larural` y `/r/angus`. Ver `10-landing-campo.md`.
+
 Además, las páginas legales que ya existen en la web actual: Política de Privacidad (`/privacidad`) y Términos y Condiciones (`/terminos-y-condiciones`).
 
 ## Navegación
