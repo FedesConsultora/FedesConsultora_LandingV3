@@ -31,7 +31,13 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Agenda:** Google Calendar embebido vigente; cal.com queda como mejora futura cuando exista URL pública aprobada.
 - **Analítica:** instrumentación GA4 preparada, pero `PUBLIC_GA_ID` sigue sin definir. La V1 no tiene un Measurement ID versionado para reutilizar.
 - **Dominio:** `fedesconsultora.com`. Redirects de compatibilidad aprobados: `/agencia` y `/consultora` → `/consultoria`; `/hablemos` → `/contacto`; `/onboarding-empresas` → `/onboardings`.
-- **Páginas legales:** siguen pendientes de texto definitivo y revisión profesional. Hasta entonces: `PUBLIC_INDEXABLE=false`, páginas legales con `noindex` y mails reales desactivados.
+- **Páginas legales:** borrador publicado el 22/10/2026 en `/privacidad` y `/terminos-y-condiciones` (`src/content/legales.ts`), sobre la base de los textos de la web anterior (repo `FedesConsultora_Landing`, `src/pages/Legal`, 22/07/2026), adaptado a fedesconsultora.com: se quitó la app de Meta, «agencia», fedes.ai y soporte@fedes.ai, y se sumaron los datos que trata el sitio hoy (formulario, Neon, Resend, landings privadas, GA4, agenda de Google). Sigue pendiente la revisión de un abogado; hasta entonces ambas páginas mantienen `noindex`, quedan fuera del sitemap y los mails reales siguen desactivados. Falta completar lo resaltado como `[TEXTO LEGAL PENDIENTE]`:
+  - Razón social, CUIT y domicilio legal.
+  - Proveedor y país del servidor del sitio (Neon está en Estados Unidos, us-east-1).
+  - Plazo concreto de conservación de los datos.
+  - Inscripción de la base de datos ante la Agencia de Acceso a la Información Pública. Validar también la leyenda de la AAIP sobre el derecho de acceso, ya incluida.
+  - Alcance de la limitación de responsabilidad (Ley 24.240 y Código Civil y Comercial).
+  - Tribunales competentes: la versión anterior decía Rosario (Santa Fe) y el contacto publicado es Buenos Aires.
 - **Release externo:** falta ejecutar Neon CI aislado, publicar la imagen GHCR por SHA/digest y hacer rehearsal/cutover en el VPS según `docs/DEPLOY_VPS.md`.
 
 ## Landing para el campo (`/campo`, `docs/10-landing-campo.md`)
