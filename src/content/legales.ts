@@ -2,8 +2,9 @@
 // Base: páginas Legal de la web anterior (repo FedesConsultora_Landing, src/pages/Legal, 22/07/2026),
 // adaptadas a fedesconsultora.com: sin la app de Meta, sin «agencia», con los datos que el sitio
 // trata hoy (formulario, base de datos, mails, landings privadas, GA4, agenda de Google).
-// BORRADOR SUJETO A REVISIÓN DE UN ABOGADO (docs/08-pendientes.md). Lo marcado con
-// [TEXTO LEGAL PENDIENTE: …] falta definir y se ve resaltado en la página.
+// Datos societarios, plazos de conservación y jurisdicción completados el 22/10/2026.
+// SUJETO A REVISIÓN DE UN ABOGADO (docs/08-pendientes.md). Si hace falta marcar algo sin definir,
+// usar [TEXTO LEGAL PENDIENTE: …]: LegalDoc.astro lo resalta en la página.
 
 export type Bloque = string | { lista: string[] } | { subtitulo: string };
 export interface Seccion {
@@ -20,6 +21,10 @@ export interface DocumentoLegal {
 }
 
 const MAIL = 'info@fedesconsultora.com';
+// Datos societarios: solo en las páginas legales, nunca como dirección de contacto del sitio.
+const RAZON_SOCIAL = 'Fedes Solutions SRL';
+const CUIT = '30-71861095-4';
+const DOMICILIO = 'Av. Luis María Campos 877, Ciudad Autónoma de Buenos Aires';
 
 export const privacidad: DocumentoLegal = {
   meta: {
@@ -32,7 +37,7 @@ export const privacidad: DocumentoLegal = {
     {
       titulo: '1. Introducción y alcance',
       bloques: [
-        'En Fedes Consultora (en adelante, «Fedes» o «nosotros») cuidamos tu privacidad y tratamos tus datos personales de forma responsable. Esta Política explica de manera clara:',
+        `En Fedes Consultora, marca de ${RAZON_SOCIAL} (en adelante, «Fedes» o «nosotros»), cuidamos tu privacidad y tratamos tus datos personales de forma responsable. Esta Política explica de manera clara:`,
         {
           lista: [
             'Qué datos personales recopilamos y por qué.',
@@ -50,8 +55,9 @@ export const privacidad: DocumentoLegal = {
         'El responsable del tratamiento de tus datos personales es:',
         {
           lista: [
-            'Razón social: [TEXTO LEGAL PENDIENTE: razón social y CUIT]',
-            'Domicilio legal: [TEXTO LEGAL PENDIENTE: domicilio legal]',
+            `Razón social: ${RAZON_SOCIAL}`,
+            `CUIT: ${CUIT}`,
+            `Domicilio legal: ${DOMICILIO}`,
             'Sitio web: fedesconsultora.com',
             `Correo de contacto: ${MAIL}`,
             'País: República Argentina',
@@ -114,7 +120,7 @@ export const privacidad: DocumentoLegal = {
         'Solo compartimos tu información en estos casos:',
         {
           lista: [
-            'Proveedores que nos prestan servicios técnicos necesarios, que tratan los datos por cuenta nuestra: el servidor donde funciona el sitio ([TEXTO LEGAL PENDIENTE: proveedor y país del servidor]), Neon (base de datos), Resend (envío de mails) y Google (Analytics y agenda).',
+            'Proveedores que nos prestan servicios técnicos necesarios, que tratan los datos por cuenta nuestra: DonWeb (servidor donde funciona el sitio, en Argentina), Neon (base de datos), Resend (envío de mails) y Google (Analytics y agenda).',
             'Obligación legal: cuando lo exija una ley, una orden judicial o una autoridad competente.',
             'Consentimiento: cuando nos autorices expresamente a compartir información con un tercero determinado.',
             'Protección de derechos: para proteger los derechos, la seguridad o los bienes de Fedes, de quienes nos contactan o de terceros.',
@@ -154,12 +160,13 @@ export const privacidad: DocumentoLegal = {
     {
       titulo: '8. Cuánto tiempo conservamos tus datos',
       bloques: [
-        'Conservamos tus datos solo durante el tiempo necesario para las finalidades de esta Política o el que exijan las obligaciones legales aplicables. [TEXTO LEGAL PENDIENTE: plazo concreto de conservación de los datos de contacto y de seguimiento]. Para definirlo tenemos en cuenta:',
+        'Conservamos tus datos solo durante el tiempo necesario para las finalidades de esta Política o el que exijan las obligaciones legales aplicables:',
         {
           lista: [
-            'La duración de la relación comercial con tu empresa.',
-            'Las obligaciones legales de conservación de registros contables y fiscales.',
-            'La necesidad de ejercer o defender derechos.',
+            'Si nos contactaste y no avanzamos con una propuesta: hasta 24 meses desde el último contacto.',
+            'Si tu empresa contrata nuestros servicios: mientras dure la relación comercial y, después, durante el plazo legal de conservación de la documentación contable y comercial (10 años).',
+            'El registro de visitas a landings privadas y de aperturas y clics de mails: hasta 24 meses desde que se generó.',
+            'Si pedís la supresión de tus datos, los eliminamos antes, salvo los que debamos conservar por una obligación legal o para ejercer o defender derechos.',
           ],
         },
         'Cuando los datos dejan de ser necesarios, los eliminamos o los anonimizamos de forma segura.',
@@ -179,9 +186,8 @@ export const privacidad: DocumentoLegal = {
           ],
         },
         `Para ejercerlos, escribinos a ${MAIL} indicando tu pedido. Podemos pedirte que acredites tu identidad. Para dejar de recibir nuestros mails, también podés usar el link de baja que incluye cada uno.`,
-        'El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley N.º 25.326. La Agencia de Acceso a la Información Pública, en su carácter de Órgano de Control de la Ley N.º 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.',
-        '[TEXTO LEGAL PENDIENTE: inscripción de la base de datos ante la Agencia de Acceso a la Información Pública]',
-      ],
+        'Respondemos los pedidos de acceso dentro de los 10 días corridos y los de rectificación o supresión dentro de los 5 días hábiles desde que los recibimos, según los artículos 14 y 16 de la Ley 25.326.',
+        'El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley N.º 25.326. La Agencia de Acceso a la Información Pública, en su carácter de Órgano de Control de la Ley N.º 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.',      ],
     },
     {
       titulo: '10. Menores de edad',
@@ -192,7 +198,7 @@ export const privacidad: DocumentoLegal = {
     {
       titulo: '11. Transferencias internacionales',
       bloques: [
-        'Algunos de nuestros proveedores (por ejemplo, la base de datos, el envío de mails y Google) almacenan o procesan datos en servidores ubicados fuera de la República Argentina, como en Estados Unidos. En esos casos procuramos que ofrezcan un nivel de protección adecuado conforme a la normativa argentina y a estándares internacionales de seguridad de la información.',
+        'El sitio funciona en un servidor ubicado en Argentina. Algunos de nuestros proveedores (por ejemplo, la base de datos, el envío de mails y Google) almacenan o procesan datos en servidores ubicados fuera de la República Argentina, como en Estados Unidos. En esos casos procuramos que ofrezcan un nivel de protección adecuado conforme a la normativa argentina y a estándares internacionales de seguridad de la información.',
       ],
     },
     {
@@ -230,7 +236,7 @@ export const terminos: DocumentoLegal = {
     {
       titulo: '2. Quiénes somos y qué ofrecemos',
       bloques: [
-        'Fedes Consultora es una consultora de negocios que también ejecuta, con equipo propio. Entre otros servicios, ofrecemos:',
+        `Fedes Consultora es una marca de ${RAZON_SOCIAL} (CUIT ${CUIT}), con domicilio legal en ${DOMICILIO}. Somos una consultora de negocios que también ejecuta, con equipo propio. Entre otros servicios, ofrecemos:`,
         {
           lista: [
             'Onboardings de 60 días, organizados en tres rutas: Mercado y marca, Oferta y comercial, y Organización y finanzas.',
@@ -286,7 +292,7 @@ export const terminos: DocumentoLegal = {
       titulo: '7. Limitación de responsabilidad',
       bloques: [
         'Trabajamos para que el Sitio esté disponible, actualizado y seguro. Sin embargo, no garantizamos que funcione de forma ininterrumpida o libre de errores.',
-        'Fedes Consultora no será responsable por daños derivados del uso o de la imposibilidad de uso del Sitio, ni por decisiones tomadas solo a partir de la información general publicada en él. [TEXTO LEGAL PENDIENTE: alcance de la limitación de responsabilidad conforme a la Ley 24.240 y al Código Civil y Comercial]',
+        'En la medida en que lo permita la normativa vigente, Fedes Consultora no será responsable por daños derivados del uso o de la imposibilidad de uso del Sitio, ni por decisiones tomadas solo a partir de la información general publicada en él. Nada de lo dispuesto en estos Términos limita los derechos que te reconozcan la Ley 24.240 de Defensa del Consumidor o el Código Civil y Comercial de la Nación, cuando correspondan.',
       ],
     },
     {
@@ -310,7 +316,7 @@ export const terminos: DocumentoLegal = {
     {
       titulo: '11. Ley aplicable y jurisdicción',
       bloques: [
-        'Estos Términos se rigen por las leyes de la República Argentina. [TEXTO LEGAL PENDIENTE: tribunales competentes; la versión anterior indicaba los Tribunales Ordinarios de Rosario, Santa Fe, y el contacto publicado hoy es Buenos Aires]',
+        'Estos Términos se rigen por las leyes de la República Argentina. Cualquier controversia se someterá a los tribunales ordinarios de la Ciudad Autónoma de Buenos Aires, sin perjuicio de la jurisdicción que corresponda a quien actúe como consumidor según la Ley 24.240.',
       ],
     },
     {
