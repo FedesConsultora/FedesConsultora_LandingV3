@@ -117,13 +117,23 @@ export const campo = {
       ['+5', 'años potenciando empresas.'],
       ['60', 'días de onboarding, con una hoja de ruta que se ejecuta.'],
     ],
-    caso: {
-      tag: 'CASO REAL · DISTRIBUCIÓN VETERINARIA MAYORISTA',
-      antes: 'Ordenamos su identidad, su ecosistema digital y su estrategia comercial. Su app propia llegó a representar cerca del ',
-      destacado: '16% de la facturación',
-      despues: '.',
-      nota: 'Por confidencialidad, no publicamos el nombre de nuestros clientes.',
-    },
+    // Casos de docs/05-casos.md (los mismos de la home). Cada cifra va con su plazo (CLAUDE.md).
+    casos: [
+      {
+        tag: 'CASO REAL · DISTRIBUCIÓN VETERINARIA MAYORISTA',
+        antes: 'Ordenamos su identidad, su ecosistema digital y su estrategia comercial. Su app propia llegó a representar cerca del ',
+        destacado: '16% de la facturación',
+        despues: '.',
+      },
+      {
+        tag: 'CASO REAL · AGROMARKETING Y SANIDAD ANIMAL',
+        antes: 'Redefinimos su presencia online, su narrativa y su estrategia de mercado. El resultado: un crecimiento del ',
+        destacado: '297,3% en visualizaciones',
+        despues: ' y una marca con voz, coherencia y lugar dentro de su industria.',
+      },
+    ],
+    plazo: 'Plazo: 60 días, la duración del onboarding.',
+    nota: 'Por confidencialidad, no publicamos el nombre de nuestros clientes.',
   },
   faq: {
     h2: 'Preguntas frecuentes',

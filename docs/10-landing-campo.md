@@ -40,7 +40,7 @@ Siguen vigentes todas las demás: sin precios, sin nombres del equipo («consult
 3. ¿Te suena?: «El problema no es el trabajo. Es la estructura.» y tres tarjetas.
 4. Qué ordenamos: H2 y tres tarjetas con ícono, según origen.
 5. Así es la primera reunión: tres pasos y botón al calendario.
-6. Por qué Fedes: +5 años, 60 días de onboarding y el caso anónimo de distribución veterinaria mayorista (el mismo de `05-casos.md`, aprobado para publicar de forma anónima).
+6. Por qué Fedes: +5 años, 60 días de onboarding y dos casos anónimos de `05-casos.md`: distribución veterinaria mayorista (16% de la facturación) y agromarketing y sanidad animal (+297,3% en visualizaciones, sumado el 22/10/2026, el mismo de la home). Cada tarjeta lleva «Plazo: 60 días, la duración del onboarding.», que el HTML de referencia no tenía, para cumplir la regla de que toda cifra de un caso va con su plazo.
 7. Preguntas frecuentes (acordeón con `<details>`).
 8. Cierre: «Tomemos unos mates y lo charlamos.», botones y filas de contacto (Llamar, Escribir, Seguir).
 9. Pie: logo, Privacidad, Términos y «© 2026 Fedes Consultora». En celular, barra fija inferior con Agendar y WhatsApp (aparece después de 520 px de scroll).

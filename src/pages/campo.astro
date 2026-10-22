@@ -176,11 +176,22 @@ const heroSrcset = (ext: string) => `/agro/hero-campo-900.${ext} 900w, /agro/her
             ))
           }
         </div>
-        <figure class="case rv">
-          <div class="case__tag">{prueba.caso.tag}</div>
-          <blockquote>{prueba.caso.antes}<strong>{prueba.caso.destacado}</strong>{prueba.caso.despues}</blockquote>
-          <small>{prueba.caso.nota}</small>
-        </figure>
+        <div class="cases">
+          {
+            prueba.casos.map((c) => (
+              <figure class="case rv">
+                <div class="case__tag">{c.tag}</div>
+                <blockquote>
+                  {c.antes}
+                  <strong>{c.destacado}</strong>
+                  {c.despues}
+                </blockquote>
+                <small>{prueba.plazo}</small>
+              </figure>
+            ))
+          }
+        </div>
+        <p class="case-note rv">{prueba.nota}</p>
       </div>
     </section>
 
@@ -356,7 +367,9 @@ const heroSrcset = (ext: string) => `/agro/hero-campo-900.${ext} 900w, /agro/her
   .case__tag { font-size: 11px; font-weight: 700; letter-spacing: 2px; line-height: 1.5; color: var(--blue); }
   .case blockquote { font-size: 18px; font-weight: 500; line-height: 1.5; }
   .case strong { font-weight: 900; color: var(--navy); }
-  .case small { font-size: 13px; line-height: 1.5; color: var(--gray); }
+  .case small { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.5; color: var(--gray); }
+  .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .case-note { margin-top: -12px; font-size: 13px; line-height: 1.5; color: var(--white); }
 
   /* Preguntas frecuentes */
   .faq { border-top: 1px solid var(--line); }
