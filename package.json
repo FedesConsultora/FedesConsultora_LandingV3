@@ -14,6 +14,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "db:depurar": "node --env-file-if-exists=.env scripts/depurar.mjs",
     "test": "vitest run",
     "admin:crear": "node --env-file-if-exists=.env scripts/create-admin.mjs",
     "db:seed-demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
