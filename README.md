@@ -24,4 +24,4 @@ No se hace deploy remoto desde este repositorio. El workflow manual **Publish re
 
 Para un build local de diagnóstico, usar el override explícito: `IMAGE_REF=fedesconsultora-web:local BUILD_SHA=$(git rev-parse HEAD) RUNTIME_ENV_FILE=/dev/null RUNTIME_ENV_FILE_REQUIRED=false docker compose -f docker-compose.yml -f docker-compose.build.yml build`. El Compose base permanece image-only y exige `.env.production` para producción.
 
-`PUBLIC_INDEXABLE` permanece `false` por defecto. No activar indexación ni correos reales como parte de la migración.
+`PUBLIC_INDEXABLE` es `false` por defecto en builds locales; la imagen de producción (`publish-image.yml`) se publica con `true` desde el 22/10/2026. Los correos reales siguen desactivados hasta aprobar los textos legales.

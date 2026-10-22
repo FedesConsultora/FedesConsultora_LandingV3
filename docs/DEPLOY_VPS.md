@@ -45,7 +45,7 @@ Crear `/srv/fedesconsultora/.env.production` con el gestor de secretos vigente, 
 chmod 600 /srv/fedesconsultora/.env.production
 ```
 
-Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE=false`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID` (SHA). El workflow toma `PUBLIC_GA_ID` de la variable de repositorio GitHub homónima; si no existe, la imagen se publica sin GA4. Cambiar cualquiera de estas variables exige publicar una nueva imagen/SHA; nunca incluir secretos en argumentos de build.
+Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID` (SHA). El workflow toma `PUBLIC_GA_ID` y `PUBLIC_INDEXABLE` de las variables de repositorio GitHub homónimas; sin `PUBLIC_GA_ID` la imagen se publica sin GA4, y sin `PUBLIC_INDEXABLE` se publica indexable (`true`, decisión del 22/10/2026). Cambiar cualquiera de estas variables exige publicar una nueva imagen/SHA; nunca incluir secretos en argumentos de build.
 
 | Variable runtime | Clasificación y uso |
 |---|---|

@@ -16,7 +16,7 @@ Astro prerenderiza las páginas públicas por defecto. Las rutas dinámicas del 
 
 ## Variables y artefactos
 
-- Build-time público: `PUBLIC_SITE_URL`, `PUBLIC_INDEXABLE`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID`. Se incorporan a páginas o código público cuando corresponde. La indexación se mantiene desactivada (`PUBLIC_INDEXABLE=false`) hasta una decisión explícita.
+- Build-time público: `PUBLIC_SITE_URL`, `PUBLIC_INDEXABLE`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID`. Se incorporan a páginas o código público cuando corresponde. La imagen de producción se publica indexable (`PUBLIC_INDEXABLE=true`, decisión del 22/10/2026); los builds locales y el Dockerfile siguen con `false` por defecto.
 - Runtime de servidor: `POSTGRES_URL`, `SESSION_SECRET`, `LANDING_TOKEN_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `CONTACT_TO`, `CONTACT_FROM` y `MAIL_*`. Los módulos de servidor usan `getSecret` de `astro:env/server`; se inyectan al iniciar el contenedor.
 - Los scripts de migración y alta de admin usan el entorno de proceso en comandos one-shot. Ninguna clave de producción entra en `docker build`, el lockfile, la imagen o el repositorio.
 - Un cambio de variables `PUBLIC_*` requiere reconstruir el artefacto. Los secretos runtime se cambian sin reconstruir.
