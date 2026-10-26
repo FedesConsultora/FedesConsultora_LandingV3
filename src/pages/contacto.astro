@@ -89,6 +89,11 @@ const label = 'block font-display text-sm font-semibold';
             <!-- De dónde vino, si llegó con "?ruta=" (para métricas del panel, no lo completa la persona) -->
             <input type="hidden" id="ruta_referido" name="ruta_referido" value="" />
 
+            <!-- Clic en un anuncio de Google Ads, si llegó desde uno (lo completa el script de abajo) -->
+            <input type="hidden" name="gclid" value="" />
+            <input type="hidden" name="gbraid" value="" />
+            <input type="hidden" name="wbraid" value="" />
+
             <label class="flex items-start gap-3 font-display text-sm">
               <input type="checkbox" name="privacidad" required class="mt-1 h-4 w-4 accent-azul" />
               <span>{c.form.privacyPrefix} <a href={c.form.privacyLink.href} class="underline underline-offset-4 hover:text-azul" target="_blank">{c.form.privacyLink.label}</a>.</span>
@@ -145,6 +150,20 @@ const label = 'block font-display text-sm font-semibold';
         resolver.value = ruta;
       }
     }
+
+    // Clic de anuncio guardado por Medicion.astro al llegar desde Google Ads. Vale 90 días,
+    // la ventana de conversión máxima de Google Ads.
+    try {
+      const clic = JSON.parse(localStorage.getItem('fedes_clic_anuncio') || 'null');
+      if (clic && Date.now() - clic.t < 90 * 24 * 60 * 60 * 1000) {
+        for (const campo of ['gclid', 'gbraid', 'wbraid']) {
+          const input = document.querySelector<HTMLInputElement>(`#contact-form input[name="${campo}"]`);
+          if (input && typeof clic[campo] === 'string') input.value = clic[campo];
+        }
+      }
+    } catch {
+      // Sin almacenamiento disponible (modo privado, bloqueado): el formulario se envía igual.
+    }
   </script>
 
   <script define:vars={{ sending: c.form.sending, errorText: c.form.error }}>
@@ -167,11 +186,13 @@ const label = 'block font-display text-sm font-semibold';
         const res = await fetch(form.action, { method: 'POST', body: data });
         if (!res.ok) throw new Error(String(res.status));
 
-        // Conversión para GA4 y Google Ads (evento recomendado generate_lead). Solo la opción elegida
-        // en «¿Qué querés resolver?»: nunca nombre, mail ni otros datos del lead.
-        if (typeof window.gtag === 'function') {
-          window.gtag('event', 'generate_lead', { form_id: 'contacto', resolver: String(data.get('resolver') || '') });
-        }
+        // Conversión para GA4 y Google Ads vía GTM (evento recomendado generate_lead). Solo la opción
+        // elegida en «¿Qué querés resolver?»: nunca nombre, mail ni otros datos del lead.
+        (window.dataLayer = window.dataLayer || []).push({
+          event: 'generate_lead',
+          form_id: 'contacto',
+          resolver: String(data.get('resolver') || ''),
+        });
 
         const nombre = String(data.get('nombre') || '').trim().split(' ')[0];
         transicionMsg.textContent = `¡Gracias${nombre ? ', ' + nombre : ''}! Ahora elegí un horario para tu sesión.`;

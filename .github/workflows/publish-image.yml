@@ -22,7 +22,7 @@ jobs:
     env:
       IMAGE: ghcr.io/fedesconsultora/fedesconsultora-landingv3
       IMAGE_TAG: sha-${{ github.sha }}
-      PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID }}
+      PUBLIC_GTM_ID: ${{ vars.PUBLIC_GTM_ID }}
       # Indexación habilitada el 22/10/2026 (docs/08-pendientes.md). Privacidad, Términos y Nosotros
       # siguen con noindex propio. Para volver a bloquear buscadores: variable de repo PUBLIC_INDEXABLE=false.
       PUBLIC_INDEXABLE: ${{ vars.PUBLIC_INDEXABLE || 'true' }}
@@ -41,7 +41,7 @@ jobs:
           docker build
           --build-arg PUBLIC_SITE_URL=https://fedesconsultora.com
           --build-arg PUBLIC_INDEXABLE="${PUBLIC_INDEXABLE}"
-          --build-arg PUBLIC_GA_ID="${PUBLIC_GA_ID}"
+          --build-arg PUBLIC_GTM_ID="${PUBLIC_GTM_ID}"
           --build-arg PUBLIC_BUILD_ID=${GITHUB_SHA}
           --build-arg VCS_REF=${GITHUB_SHA}
           --tag "${IMAGE}:${IMAGE_TAG}" .

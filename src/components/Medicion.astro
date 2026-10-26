@@ -1,0 +1,57 @@
+---
+// Medición de las páginas públicas (Base.astro y Campana.astro). Nunca en el panel ni en las
+// landings privadas (Privada.astro no la usa).
+// - Google Tag Manager (PUBLIC_GTM_ID). GA4 y las conversiones de Google Ads se configuran
+//   adentro de GTM (docs/08-pendientes.md). El sitio solo empuja eventos al dataLayer.
+// - Clic de anuncio: si la URL trae gclid, gbraid o wbraid, se guarda 90 días en el navegador
+//   para mandarlo con el formulario de Contacto aunque la persona recorra otras páginas antes.
+interface Props {
+  parte: 'head' | 'body';
+}
+const { parte } = Astro.props;
+const gtmId = import.meta.env.PUBLIC_GTM_ID;
+---
+
+{
+  parte === 'head' && (
+    <>
+      <script is:inline>
+        (function () {
+          try {
+            var p = new URLSearchParams(location.search);
+            var o = { t: Date.now() };
+            var hay = false;
+            ['gclid', 'gbraid', 'wbraid'].forEach(function (k) {
+              var v = p.get(k);
+              if (v && /^[A-Za-z0-9_-]{1,200}$/.test(v)) {
+                o[k] = v;
+                hay = true;
+              }
+            });
+            if (hay) localStorage.setItem('fedes_clic_anuncio', JSON.stringify(o));
+          } catch (e) {}
+        })();
+      </script>
+      {gtmId && (
+        <script is:inline define:vars={{ gtmId }}>
+          (function (w, d, s, l, i) {
+            w[l] = w[l] || [];
+            w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+            var f = d.getElementsByTagName(s)[0],
+              j = d.createElement(s);
+            j.async = true;
+            j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i;
+            f.parentNode.insertBefore(j, f);
+          })(window, document, 'script', 'dataLayer', gtmId);
+        </script>
+      )}
+    </>
+  )
+}
+{
+  parte === 'body' && gtmId && (
+    <noscript>
+      <iframe src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`} height="0" width="0" style="display:none;visibility:hidden" />
+    </noscript>
+  )
+}

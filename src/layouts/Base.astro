@@ -5,6 +5,7 @@ import '@fontsource/source-serif-4/400.css';
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import Medicion from '../components/Medicion.astro';
 import { SITE_URL, organization, website, breadcrumb, graph } from '../lib/seo';
 
 interface Props {
@@ -23,9 +24,8 @@ interface Props {
 const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true';
 const { title, description, noindex = !indexable, crumb, schema = [], ogImage = '/og-fedes.jpg', bare = false } = Astro.props;
 
-// Google Analytics 4: mide tráfico (páginas, origen, dispositivo). Nunca se le manda
-// información de los leads (nombre, mail, etc.); eso vive solo en el panel /admin.
-const gaId = import.meta.env.PUBLIC_GA_ID;
+// Google Tag Manager (con GA4 y Google Ads adentro): mide tráfico y conversiones. Nunca se le
+// manda información de los leads (nombre, mail, etc.); eso vive solo en el panel /admin.
 const isAdminPage = Astro.url.pathname.startsWith('/admin');
 
 const path = Astro.url.pathname;
@@ -71,24 +71,10 @@ const jsonld = graph(
     <script is:inline>
       document.documentElement.classList.add('js');
     </script>
-    {
-      gaId && !isAdminPage && (
-        <>
-          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
-          <script define:vars={{ gaId }}>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-              dataLayer.push(arguments);
-            }
-            window.gtag = gtag;
-            gtag('js', new Date());
-            gtag('config', gaId);
-          </script>
-        </>
-      )
-    }
+    {!isAdminPage && <Medicion parte="head" />}
   </head>
   <body>
+    {!isAdminPage && <Medicion parte="body" />}
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-white focus:px-4 focus:py-2">
       Ir al contenido
     </a>
@@ -151,15 +137,17 @@ const jsonld = graph(
         counters.forEach((el) => co.observe(el));
       }
 
-      // Eventos de Google Analytics: un solo listener para todo el sitio, sin tocar cada botón.
+      // Eventos para Google Tag Manager: un solo listener para todo el sitio, sin tocar cada botón.
+      // Van al dataLayer; GTM decide a qué herramienta mandarlos (GA4, Google Ads).
       document.addEventListener('click', (e) => {
-        const gtag = (window as any).gtag;
-        if (typeof gtag !== 'function') return;
+        if (location.pathname.startsWith('/admin')) return;
+        const dataLayer = ((window as any).dataLayer ??= []);
         const target = e.target as HTMLElement;
 
         const cta = target.closest<HTMLAnchorElement>('a[href^="/contacto"]');
         if (cta) {
-          gtag('event', 'cta_agendar', {
+          dataLayer.push({
+            event: 'cta_agendar',
             label: cta.textContent?.trim().slice(0, 60),
             page_path: location.pathname,
           });
@@ -167,7 +155,8 @@ const jsonld = graph(
 
         const verDetalle = target.closest<HTMLAnchorElement>('nav[aria-label="Ir a una ruta"] a');
         if (verDetalle) {
-          gtag('event', 'ver_detalle_ruta', {
+          dataLayer.push({
+            event: 'ver_detalle_ruta',
             ruta: verDetalle.querySelector('h3')?.textContent?.trim(),
           });
         }

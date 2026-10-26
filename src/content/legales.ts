@@ -89,12 +89,13 @@ export const privacidad: DocumentoLegal = {
         { subtitulo: '3.3. Datos de navegación' },
         {
           lista: [
-            'Páginas visitadas, origen de la visita (por ejemplo, un buscador, un anuncio o un código QR), tipo de dispositivo y ubicación aproximada, mediante Google Analytics.',
+            'Páginas visitadas, origen de la visita (por ejemplo, un buscador, un anuncio o un código QR), tipo de dispositivo y ubicación aproximada, mediante Google Analytics, que cargamos a través de Google Tag Manager.',
             'Clics en los botones para agendar, escribir por WhatsApp o enviar el formulario.',
+            'Si llegás desde un anuncio de Google, el identificador de ese clic: lo guardamos en tu navegador durante 90 días y, si completás el formulario de contacto, junto con tu consulta, para saber qué anuncios generan consultas.',
             'Por seguridad, los intentos fallidos de acceso se registran con un código derivado de la IP, nunca con la IP en claro.',
           ],
         },
-        'A Google Analytics no le enviamos datos que te identifiquen, como tu nombre o tu correo electrónico.',
+        'A Google Analytics y a Google Ads no les enviamos datos que te identifiquen, como tu nombre o tu correo electrónico.',
       ],
     },
     {
@@ -120,7 +121,7 @@ export const privacidad: DocumentoLegal = {
         'Solo compartimos tu información en estos casos:',
         {
           lista: [
-            'Proveedores que nos prestan servicios técnicos necesarios, que tratan los datos por cuenta nuestra: DonWeb (servidor donde funciona el sitio, en Argentina), Neon (base de datos), Resend (envío de mails) y Google (Analytics y agenda).',
+            'Proveedores que nos prestan servicios técnicos necesarios, que tratan los datos por cuenta nuestra: DonWeb (servidor donde funciona el sitio, en Argentina), Neon (base de datos), Resend (envío de mails) y Google (Tag Manager, Analytics, Ads y agenda).',
             'Obligación legal: cuando lo exija una ley, una orden judicial o una autoridad competente.',
             'Consentimiento: cuando nos autorices expresamente a compartir información con un tercero determinado.',
             'Protección de derechos: para proteger los derechos, la seguridad o los bienes de Fedes, de quienes nos contactan o de terceros.',
@@ -150,6 +151,7 @@ export const privacidad: DocumentoLegal = {
         {
           lista: [
             'Cookies analíticas: Google Analytics nos permite entender cómo se usa el sitio, con datos agregados.',
+            'Cookies de publicidad: Google Ads nos permite medir qué anuncios llevan a una consulta.',
             'Cookies de terceros: la agenda de Google integrada en Contacto puede usar sus propias cookies.',
             'Cookies esenciales: solo en el panel interno del equipo, para mantener la sesión iniciada.',
           ],

@@ -45,7 +45,7 @@ Crear `/srv/fedesconsultora/.env.production` con el gestor de secretos vigente, 
 chmod 600 /srv/fedesconsultora/.env.production
 ```
 
-Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE`, `PUBLIC_GA_ID` y `PUBLIC_BUILD_ID` (SHA). El workflow toma `PUBLIC_GA_ID` y `PUBLIC_INDEXABLE` de las variables de repositorio GitHub homónimas; sin `PUBLIC_GA_ID` la imagen se publica sin GA4, y sin `PUBLIC_INDEXABLE` se publica indexable (`true`, decisión del 22/10/2026). Cambiar cualquiera de estas variables exige publicar una nueva imagen/SHA; nunca incluir secretos en argumentos de build.
+Variables públicas incluidas durante el build: `PUBLIC_SITE_URL=https://fedesconsultora.com`, `PUBLIC_INDEXABLE`, `PUBLIC_GTM_ID` y `PUBLIC_BUILD_ID` (SHA). El workflow toma `PUBLIC_GTM_ID` y `PUBLIC_INDEXABLE` de las variables de repositorio GitHub homónimas; sin `PUBLIC_GTM_ID` la imagen se publica sin Google Tag Manager (ni GA4 ni Google Ads), y sin `PUBLIC_INDEXABLE` se publica indexable (`true`, decisión del 22/10/2026). Cambiar cualquiera de estas variables exige publicar una nueva imagen/SHA; nunca incluir secretos en argumentos de build.
 
 | Variable runtime | Clasificación y uso |
 |---|---|
@@ -84,7 +84,7 @@ docker compose --env-file .env.production run --rm --no-deps fedesconsultora-web
 docker compose --env-file .env.production run --rm --no-deps fedesconsultora-web npm run db:migrate
 ```
 
-Las migraciones `001–007` ya aplicadas son inmutables. `008_resend_webhooks_idempotencia.sql` agrega la tabla de eventos idempotentes. Si el dry-run muestra algo inesperado o el target no está confirmado como Neon `main`, detenerse antes de ejecutar la migración. No se agrega Postgres al VPS.
+Las migraciones `001–007` ya aplicadas son inmutables. `008_resend_webhooks_idempotencia.sql` agrega la tabla de eventos idempotentes. `009_formularios_clic_anuncio.sql` agrega a `formularios` las columnas opcionales `gclid`, `gbraid` y `wbraid`: **aplicarla antes de levantar la imagen que la usa**, porque el formulario de Contacto ya las escribe y sin ellas devolvería `save_failed`. La imagen anterior no las lee, así que aplicarla primero es seguro. Si el dry-run muestra algo inesperado o el target no está confirmado como Neon `main`, detenerse antes de ejecutar la migración. No se agrega Postgres al VPS.
 
 Para crear/actualizar un admin, usar el comando interactivo sin exponer contraseña en args o logs:
 

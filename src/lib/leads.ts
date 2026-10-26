@@ -90,7 +90,7 @@ export async function obtenerLead(id: number) {
       WHERE h.lead_id = ${id} ORDER BY h.creado_el DESC, h.id DESC
     `,
     db()`
-      SELECT created_at, tamano, resolver, ruta_referido, comentarios, resend_status
+      SELECT created_at, tamano, resolver, ruta_referido, comentarios, resend_status, gclid, gbraid, wbraid
       FROM formularios WHERE lead_id = ${id} ORDER BY created_at DESC
     `,
   ]);
@@ -192,6 +192,10 @@ type EnvioFormulario = {
   ruta_referido: string | null;
   comentarios: string | null;
   resend_status: 'sent' | 'failed' | 'skipped' | 'pending';
+  // Clic en un anuncio de Google Ads (migración 009). Nulos si no vino de un anuncio.
+  gclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
 };
 
 // Envío del formulario de Contacto. Si el email ya existe, se suma al lead existente sin pisar
@@ -229,9 +233,10 @@ export async function registrarFormulario(f: EnvioFormulario) {
     ),
     formulario AS (
       INSERT INTO formularios (lead_id, nombre, empresa, email, cargo, whatsapp, tamano, resolver, ruta_referido,
-                               comentarios, resend_status)
+                               comentarios, resend_status, gclid, gbraid, wbraid)
       SELECT u.id, ${f.nombre}, ${f.empresa}, ${f.email}, ${f.cargo}, ${f.whatsapp}, ${f.tamano}, ${f.resolver},
-             ${f.ruta_referido}, ${f.comentarios}, ${f.resend_status}
+             ${f.ruta_referido}, ${f.comentarios}, ${f.resend_status}, ${f.gclid ?? null}, ${f.gbraid ?? null},
+             ${f.wbraid ?? null}
       FROM upsert_lead u
       RETURNING id, lead_id
     ),

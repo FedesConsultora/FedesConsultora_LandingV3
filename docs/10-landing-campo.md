@@ -57,7 +57,7 @@ Siguen vigentes todas las demás: sin precios, sin nombres del equipo («consult
 
 ## Medición (GA4)
 
-Usa el mismo GA4 del sitio (`PUBLIC_GA_ID`). Sin ese ID no se carga gtag y no se envía nada. Un único listener lee `data-cta` y `data-pos` de cada link y envía:
+Usa el mismo Google Tag Manager del sitio (`PUBLIC_GTM_ID`), con GA4 configurado adentro. Sin ese ID no se carga GTM y no se envía nada. Un único listener lee `data-cta` y `data-pos` de cada link y empuja al dataLayer:
 
 | Evento | Se dispara al tocar | Parámetros |
 |---|---|---|

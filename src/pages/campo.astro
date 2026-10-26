@@ -255,11 +255,13 @@ const heroSrcset = (ext: string) => `/agro/hero-campo-900.${ext} 900w, /agro/her
   </div>
 
   <script is:inline define:vars={{ origen: key }}>
-    // Medición GA4: un único listener que lee data-cta y data-pos. Sin PUBLIC_GA_ID no hay gtag y no se envía nada.
+    // Medición: un único listener que lee data-cta y data-pos y empuja el evento al dataLayer de
+    // Google Tag Manager. Sin PUBLIC_GTM_ID no se carga GTM y los eventos no salen del navegador.
     document.addEventListener('click', function (e) {
       var a = e.target.closest('[data-cta]');
-      if (!a || typeof window.gtag !== 'function') return;
-      window.gtag('event', 'click_' + a.getAttribute('data-cta'), {
+      if (!a) return;
+      (window.dataLayer = window.dataLayer || []).push({
+        event: 'click_' + a.getAttribute('data-cta'),
         origen: origen,
         ubicacion: a.getAttribute('data-pos') || '',
         link_url: a.href,

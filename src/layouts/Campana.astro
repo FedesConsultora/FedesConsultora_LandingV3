@@ -1,7 +1,8 @@
 ---
 // Layout de landings de campaña (hoy, /campo). A diferencia de Base.astro: sin menú ni pie
 // del sitio, sin Tailwind ni las tipografías del sitio; cada landing trae su propio diseño.
-// Mantiene la misma lógica de noindex y el mismo GA4 (PUBLIC_GA_ID) que el resto del sitio.
+// Mantiene la misma lógica de noindex y la misma medición (GTM) que el resto del sitio.
+import Medicion from '../components/Medicion.astro';
 import { SITE_URL } from '../lib/seo';
 
 interface Props {
@@ -16,7 +17,6 @@ interface Props {
 }
 const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true';
 const { title, description, ogTitle = title, ogDescription = description, ogImage, themeColor, preload = [] } = Astro.props;
-const gaId = import.meta.env.PUBLIC_GA_ID;
 const canonical = `${SITE_URL}${Astro.url.pathname.replace(/\/$/, '')}`;
 const ogUrl = `${SITE_URL}${ogImage}`;
 ---
@@ -48,24 +48,10 @@ const ogUrl = `${SITE_URL}${ogImage}`;
     <meta name="twitter:description" content={ogDescription} />
     <meta name="twitter:image" content={ogUrl} />
     {preload.map((p) => <link rel="preload" as="image" {...p} fetchpriority="high" />)}
-    {
-      gaId && (
-        <>
-          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
-          <script define:vars={{ gaId }}>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-              dataLayer.push(arguments);
-            }
-            window.gtag = gtag;
-            gtag('js', new Date());
-            gtag('config', gaId);
-          </script>
-        </>
-      )
-    }
+    <Medicion parte="head" />
   </head>
   <body>
+    <Medicion parte="body" />
     <slot />
   </body>
 </html>

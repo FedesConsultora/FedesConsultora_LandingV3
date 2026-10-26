@@ -30,8 +30,30 @@ describe('parseContactoForm', () => {
         resolver: 'Tecnología',
         ruta_referido: null,
         comentarios: null,
+        gclid: null,
+        gbraid: null,
+        wbraid: null,
       },
     });
+  });
+
+  it('guarda el clic de Google Ads y descarta los mal formados sin rechazar el envío', () => {
+    const form = valido();
+    form.set('gclid', 'Cj0KCQjw_abc-123');
+    form.set('gbraid', '0AAAAA<script>');
+    form.append('wbraid', 'uno');
+    form.append('wbraid', 'dos');
+    const r = parseContactoForm(form);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.fields.gclid).toBe('Cj0KCQjw_abc-123');
+    expect(r.fields.gbraid).toBeNull();
+    expect(r.fields.wbraid).toBeNull();
+
+    const largo = valido();
+    largo.set('gclid', 'a'.repeat(201));
+    const r2 = parseContactoForm(largo);
+    expect(r2.ok && r2.fields.gclid).toBeNull();
   });
 
   it('exige consentimiento exacto y único', () => {

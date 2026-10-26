@@ -29,7 +29,7 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 - **Stack/hosting:** resuelto. Astro Node standalone en Docker, detrás del Nginx central del VPS; Neon PostgreSQL y Resend externos.
 - **Formulario de contacto:** resuelto técnicamente. Neon es fuente de verdad; primero se persiste el lead/formulario y luego se intenta el aviso. Falta confirmar la operación real de Resend y el remitente verificado.
 - **Agenda:** Google Calendar embebido vigente; cal.com queda como mejora futura cuando exista URL pública aprobada.
-- **Analítica:** instrumentación GA4 preparada, pero `PUBLIC_GA_ID` sigue sin definir. La V1 no tiene un Measurement ID versionado para reutilizar.
+- **Analítica:** desde el 26/10/2026 el sitio carga Google Tag Manager (`PUBLIC_GTM_ID`), con GA4 y Google Ads configurados adentro de GTM. Falta crear el contenedor y cargar su ID (ver «Posicionamiento y Google Ads»).
 - **Dominio:** `fedesconsultora.com`. Redirects de compatibilidad aprobados: `/agencia` y `/consultora` → `/consultoria`; `/hablemos` → `/contacto`; `/onboarding-empresas` → `/onboardings`.
 - **Páginas legales:** borrador publicado el 22/10/2026 en `/privacidad` y `/terminos-y-condiciones` (`src/content/legales.ts`), sobre la base de los textos de la web anterior (repo `FedesConsultora_Landing`, `src/pages/Legal`, 22/07/2026), adaptado a fedesconsultora.com: se quitó la app de Meta, «agencia», fedes.ai y soporte@fedes.ai, y se sumaron los datos que trata el sitio hoy (formulario, Neon, Resend, landings privadas, GA4, agenda de Google). Sigue pendiente la revisión de un abogado; hasta entonces ambas páginas mantienen `noindex`, quedan fuera del sitemap y los mails reales siguen desactivados.
   - **Completado el 22/10/2026:** Fedes Solutions SRL, CUIT 30-71861095-4, domicilio legal Av. Luis María Campos 877, CABA (solo en las páginas legales, no como dirección de contacto); servidor VPS de DonWeb en Argentina (Neon, Resend y Google, en el exterior).
@@ -39,7 +39,7 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 
 ## Landing para el campo (`/campo`, `docs/10-landing-campo.md`)
 
-- **GA4:** definir `PUBLIC_GA_ID`. Sin él, los eventos `click_*` no se envían. En GA4, marcar `click_agendar` y `click_whatsapp` como eventos clave y registrar `origen` y `ubicacion` como dimensiones personalizadas.
+- **Medición:** los eventos `click_*` van al dataLayer de GTM; sin `PUBLIC_GTM_ID` no salen del navegador. En GA4, marcar `click_agendar` y `click_whatsapp` como eventos clave y registrar `origen` y `ubicacion` como dimensiones personalizadas.
 - **QA en dispositivos reales:** WhatsApp con el mensaje de cada origen en iPhone y Android; Llamar, Escribir y Seguir; vista previa del link en WhatsApp (requiere la URL pública); eventos en tiempo real en GA4.
 - **QR:** generarlos solo con `/r/larural` y `/r/angus` publicados y probados en producción, y escanear las pruebas impresas con dos celulares.
 - **Indexación:** hereda `PUBLIC_INDEXABLE`; hoy lleva `noindex` como el resto del sitio. No afecta a quien llega por QR.
@@ -49,10 +49,15 @@ Los pendientes de contenido no impiden trabajar ni hacer un rehearsal técnico. 
 Hasta el 22/10/2026, Google mostraba «No hay información disponible sobre esta página» porque producción servía `robots.txt` con `Disallow: /` y `noindex` en cada página.
 
 1. **Publicar:** merge a `main` y nueva imagen (`publish-image.yml` ya usa `PUBLIC_INDEXABLE=true`). Validar en producción que `robots.txt` muestre `Allow: /` y el `Sitemap:`, y que el Inicio no tenga `<meta name="robots">`.
-2. **GA4:** crear la propiedad, cargar el ID en la variable de repo `PUBLIC_GA_ID` y publicar otra imagen. Sin él no se miden visitas ni conversiones.
+2. **GTM y GA4** (sin esto no conviene activar la campaña):
+   - Crear la propiedad de GA4 y un contenedor web de GTM. Cargar el ID del contenedor (`GTM-XXXXXXX`) en la variable de repo `PUBLIC_GTM_ID` y publicar otra imagen.
+   - En GTM: etiqueta de Google (GA4) con el ID de medición, en todas las páginas; etiqueta «Vinculador de conversiones» de Google Ads, en todas las páginas.
+   - Una etiqueta de evento de GA4 con activador de evento personalizado `^(generate_lead|cta_agendar|ver_detalle_ruta|click_.*)$` (expresión regular), nombre de evento `{{Event}}` y como parámetros las variables de capa de datos `form_id`, `resolver`, `origen`, `ubicacion`, `link_url`, `label`, `page_path` y `ruta`.
+   - En GA4, marcar `generate_lead` como evento clave.
+   - Probar con la vista previa de GTM que `generate_lead` se dispara al enviar el formulario de Contacto.
 3. **Google Search Console:** propiedad de dominio verificada por registro TXT en el DNS; enviar `https://fedesconsultora.com/sitemap-index.xml`; pedir la indexación del Inicio con «Inspeccionar URL». Importar la propiedad en Bing Webmaster Tools.
 4. **Perfil de empresa de Google:** empresa de servicios con zona de cobertura en Buenos Aires, sin dirección publicada. Mismo nombre, web, mail y horario que el sitio. Es lo que arma el panel de la marca al buscar «Fedes Consultora».
-5. **Google Ads:** vincular Ads con GA4, con etiquetado automático activo. Importar `generate_lead` (formulario de Contacto enviado) como conversión principal y `cta_agendar` (clic a Contacto) como secundaria. URL final de los anuncios: `https://fedesconsultora.com/contacto`. No usar precios ni «agencia» en los anuncios.
+5. **Google Ads:** vincular Ads con GA4, con etiquetado automático activo (agrega el `gclid` a la URL). Conversión principal: `generate_lead` (formulario de Contacto enviado), importada desde GA4 o con una etiqueta de seguimiento de conversiones de Ads en GTM con el mismo activador. `cta_agendar` (clic a Contacto) como secundaria. Cada envío que llega desde un anuncio guarda su `gclid` (o `gbraid`/`wbraid`) con el lead y se ve en el panel, para subir después como conversiones offline las reuniones o ventas cerradas. URL final de los anuncios: `https://fedesconsultora.com/contacto`. No usar precios ni «agencia» en los anuncios.
 6. **Datos estructurados:** confirmar si el teléfono (+54 9 221, La Plata) se publica para sumarlo al schema y al perfil de empresa.
 
 ## Fuera del sitio
@@ -99,7 +104,7 @@ Hasta el 22/10/2026, Google mostraba «No hay información disponible sobre esta
   2. Hacer el cutover del vhost existente de `fedesconsultora.com` al contenedor siguiendo `docs/DEPLOY_VPS.md`, sin cambiar DNS salvo que el preflight detecte una desviación.
   3. Validar redirects, sitemap, robots, headers privados y smoke externo.
   4. Publicar otra imagen con `PUBLIC_INDEXABLE=true` (decidido el 22/10/2026 sin esperar los legales, que siguen con `noindex`).
-  5. Enviar `https://fedesconsultora.com/sitemap-index.xml` a Google Search Console y Bing Webmaster Tools y habilitar GA4 si se configuró `PUBLIC_GA_ID`.
+  5. Enviar `https://fedesconsultora.com/sitemap-index.xml` a Google Search Console y Bing Webmaster Tools y habilitar la medición si se configuró `PUBLIC_GTM_ID`.
 - **Datos estructurados:** `Organization`/`ProfessionalService`, `WebSite`, `BreadcrumbList`, `ContactPage` y un `Service` por ruta con sus onboardings (sin precios). Usan solo datos de los docs. No incluyen teléfono: el WhatsApp publicado tiene característica 221 (La Plata) y hay que confirmar que coincida con «Buenos Aires».
 - **Metadatos:** título del Inicio acortado a 56 caracteres. La meta descripción de Consultoría (184 caracteres) se dejó tal cual figura en `docs/02-sitemap.md`, aunque Google puede cortarla cerca de los 155. Validar si se acorta.
 - **`robots.txt`:** al lanzar permite a los rastreadores de buscadores con IA (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, etc.). Decisión editable en `src/pages/robots.txt.ts`.
@@ -126,7 +131,7 @@ Hasta el 22/10/2026, Google mostraba «No hay información disponible sobre esta
 - **Seguridad:** CSRF derivado por HMAC, rate-limit por IP, auditoría de acciones sensibles y control de origen en middleware.
 - **Alta de admin:** `npm run admin:crear` como operación interactiva; la contraseña no se pasa por argumentos ni se versiona.
 - **Variables vigentes:** `POSTGRES_URL`, `SESSION_SECRET`, `LANDING_TOKEN_KEY`, `RESEND_WEBHOOK_SECRET`, configuración `CONTACT_*`/`MAIL_*` y las `PUBLIC_*` de build. No existen credenciales `ADMIN_USER`/`ADMIN_PASSWORD_HASH` como arquitectura vigente.
-- **GA4:** instrumentación preparada; falta definir `PUBLIC_GA_ID` si se decide habilitar analítica en el primer release indexable.
+- **Medición:** GTM preparado (`PUBLIC_GTM_ID`); falta crear el contenedor y cargar su ID.
 
 ## Registro de la construcción (calendario embebido en Contacto)
 
