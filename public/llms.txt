@@ -8,6 +8,7 @@ Fedes Consultora trabaja con CEOs y ejecutivos de empresas medianas y grandes. T
 
 - [Inicio](https://fedesconsultora.com/): qué hace Fedes, el método en cuatro pasos y los cuatro principios de trabajo.
 - [Consultoría](https://fedesconsultora.com/consultoria): tres rutas (Mercado y marca, Oferta y comercial, Organización y finanzas) con sus onboardings acumulativos, y la línea de tecnología.
+- [Onboardings](https://fedesconsultora.com/onboardings): las tres rutas (Mercado y marca, Oferta y comercial, Organización y finanzas); cada onboarding dura 60 días y termina en un plan de acción.
 - [Casos](https://fedesconsultora.com/casos): resultados por industria, presentados de forma anónima y con su plazo de 60 días.
 - [Contacto](https://fedesconsultora.com/contacto): formulario para agendar la sesión de diagnóstico sin cargo.
 

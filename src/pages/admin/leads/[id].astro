@@ -224,6 +224,15 @@ const envioMail: Record<string, string> = { sent: 'aviso enviado', failed: 'fall
                         {f.ruta_referido && f.ruta_referido !== f.resolver && ` · vino por: ${f.ruta_referido}`}
                       </p>
                       {f.comentarios && <p class="mt-1 text-ink/70">{f.comentarios}</p>}
+                      {(f.gclid || f.gbraid || f.wbraid) && (
+                        <p class="mt-1 text-ink/60">
+                          Llegó desde un anuncio de Google Ads.{' '}
+                          <span class="text-ink/40">Para subir la conversión en Ads:</span>{' '}
+                          <code class="break-all font-mono text-xs text-ink/70">
+                            {f.gclid ? `GCLID ${f.gclid}` : f.gbraid ? `GBRAID ${f.gbraid}` : `WBRAID ${f.wbraid}`}
+                          </code>
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -1,0 +1,57 @@
+---
+// Layout de landings de campaña (hoy, /campo). A diferencia de Base.astro: sin menú ni pie
+// del sitio, sin Tailwind ni las tipografías del sitio; cada landing trae su propio diseño.
+// Mantiene la misma lógica de noindex y la misma medición (GTM) que el resto del sitio.
+import Medicion from '../components/Medicion.astro';
+import { SITE_URL } from '../lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage: string;
+  themeColor: string;
+  // Recursos a precargar en el <head> (por ejemplo, la foto del hero).
+  preload?: { href: string; imagesrcset?: string; imagesizes?: string; type?: string }[];
+}
+const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true';
+const { title, description, ogTitle = title, ogDescription = description, ogImage, themeColor, preload = [] } = Astro.props;
+const canonical = `${SITE_URL}${Astro.url.pathname.replace(/\/$/, '')}`;
+const ogUrl = `${SITE_URL}${ogImage}`;
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {!indexable && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content={themeColor} />
+    <meta property="og:site_name" content="Fedes Consultora" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:title" content={ogTitle} />
+    <meta property="og:description" content={ogDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={ogTitle} />
+    <meta name="twitter:description" content={ogDescription} />
+    <meta name="twitter:image" content={ogUrl} />
+    {preload.map((p) => <link rel="preload" as="image" {...p} fetchpriority="high" />)}
+    <Medicion parte="head" />
+  </head>
+  <body>
+    <Medicion parte="body" />
+    <slot />
+  </body>
+</html>

@@ -14,6 +14,8 @@ export const GET: APIRoute = ({ site }) => {
         'Disallow: /admin',
         'Disallow: /diagnostico/',
         'Disallow: /m/',
+        // Redirecciones de los QR impresos: el destino real es /campo.
+        'Disallow: /r/',
         '',
         '# Buscadores y asistentes con IA: permitidos',
         'User-agent: GPTBot',

@@ -10,7 +10,22 @@ export type CamposContacto = {
   resolver: string;
   ruta_referido: string | null;
   comentarios: null;
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
 };
+
+// Identificadores de clic de Google Ads. Si llegan mal formados se descartan sin rechazar el
+// envío: un dato de medición nunca debe hacer perder un lead.
+const ID_CLIC = /^[A-Za-z0-9_-]{1,200}$/;
+const CAMPOS_CLIC = ['gclid', 'gbraid', 'wbraid'] as const;
+
+function leerIdClic(form: FormData, campo: (typeof CAMPOS_CLIC)[number]) {
+  const valores = form.getAll(campo);
+  if (valores.length !== 1 || typeof valores[0] !== 'string') return null;
+  const valor = valores[0].trim();
+  return ID_CLIC.test(valor) ? valor : null;
+}
 
 export type ResultadoContacto =
   | { ok: true; fields: CamposContacto }
@@ -100,6 +115,9 @@ export function parseContactoForm(form: FormData): ResultadoContacto {
       resolver,
       ruta_referido: ruta,
       comentarios: null,
+      gclid: leerIdClic(form, 'gclid'),
+      gbraid: leerIdClic(form, 'gbraid'),
+      wbraid: leerIdClic(form, 'wbraid'),
     },
   };
 }

@@ -21,6 +21,8 @@ export default defineConfig({
         !page.includes('/privacidad') &&
         !page.includes('/terminos-y-condiciones') &&
         !page.includes('/admin') &&
+        // Landing de campaña (QR de revistas): no compite con la home en buscadores.
+        !page.includes('/campo') &&
         !page.includes('/diagnostico'),
     }),
   ],
@@ -38,6 +40,8 @@ export default defineConfig({
     '/consultora': '/consultoria',
     '/hablemos': '/contacto',
     '/onboarding-empresas': '/onboardings',
+    // Las redirecciones de los QR (/r/larural, /r/angus) no van acá: con el adaptador de Node,
+    // estas salen como 301 aunque se pida 302. Están en src/pages/r/[origen].ts.
   },
   vite: {
     plugins: [tailwindcss()],

@@ -69,6 +69,7 @@ docs/
   07-identidad-visual.md           colores, tipografías, logo y elementos gráficos
   08-pendientes.md                 datos que faltan antes de publicar
   09-portal-leads.md               especificación del portal de leads y del panel de administración
+  10-landing-campo.md              landing de campaña /campo (QR de revistas) y sus excepciones de marca y tono
 referencias/
   referencias.md                   webs de referencia y qué tomar de cada una
   capturas/                        capturas de pantalla de las referencias

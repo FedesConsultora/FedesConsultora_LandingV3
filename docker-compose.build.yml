@@ -7,6 +7,6 @@ services:
       args:
         PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://fedesconsultora.com}
         PUBLIC_INDEXABLE: ${PUBLIC_INDEXABLE:-false}
-        PUBLIC_GA_ID: ${PUBLIC_GA_ID:-}
+        PUBLIC_GTM_ID: ${PUBLIC_GTM_ID:-}
         PUBLIC_BUILD_ID: ${BUILD_SHA:-unknown}
         VCS_REF: ${BUILD_SHA:-unknown}
