@@ -50,7 +50,7 @@ Hasta el 22/10/2026, Google mostraba «No hay información disponible sobre esta
 
 1. **Publicar:** merge a `main` y nueva imagen (`publish-image.yml` ya usa `PUBLIC_INDEXABLE=true`). Validar en producción que `robots.txt` muestre `Allow: /` y el `Sitemap:`, y que el Inicio no tenga `<meta name="robots">`.
 2. **GTM y GA4** (sin esto no conviene activar la campaña):
-   - Crear la propiedad de GA4 y un contenedor web de GTM. Cargar el ID del contenedor (`GTM-XXXXXXX`) en la variable de repo `PUBLIC_GTM_ID` y publicar otra imagen.
+   - IDs creados el 27/10/2026: contenedor de GTM **`GTM-WL997D3D`** y propiedad de GA4 con ID de medición **`G-KMXWF49B9B`** (este último solo se usa adentro de GTM, no en el código). Cargar `GTM-WL997D3D` en la variable de repo `PUBLIC_GTM_ID` y publicar otra imagen.
    - En GTM: etiqueta de Google (GA4) con el ID de medición, en todas las páginas; etiqueta «Vinculador de conversiones» de Google Ads, en todas las páginas.
    - Una etiqueta de evento de GA4 con activador de evento personalizado `^(generate_lead|cta_agendar|ver_detalle_ruta|click_.*)$` (expresión regular), nombre de evento `{{Event}}` y como parámetros las variables de capa de datos `form_id`, `resolver`, `origen`, `ubicacion`, `link_url`, `label`, `page_path` y `ruta`.
    - En GA4, marcar `generate_lead` como evento clave.
