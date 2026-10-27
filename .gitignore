@@ -27,3 +27,6 @@ pnpm-debug.log*
 # vercel
 .vercel/
 .vercel
+
+# reportes de inventario de infraestructura (internos, no versionar)
+inventario-vps-*.txt
