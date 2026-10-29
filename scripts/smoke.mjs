@@ -164,13 +164,21 @@ try {
   check('GET /admin sin sesión redirige', false, 'sin respuesta');
 }
 
+// En producción Nginx y la app agregan Referrer-Policy con el mismo valor, y fetch los une como
+// "no-referrer, no-referrer". Vale si todas las copias dicen no-referrer; cualquier otro valor falla.
+const soloNoReferrer = (valor) => {
+  const copias = (valor || '').split(',').map((v) => v.trim());
+  return copias.length > 0 && copias.every((v) => v === 'no-referrer');
+};
+
 for (const path of ['/diagnostico/token-invalido', '/m/token-invalido/baja']) {
   try {
     const response = await fetch(`${base}${path}`, { redirect: 'manual' });
     check(`${path} no indexable y no cacheable`,
       (response.headers.get('cache-control') || '').includes('no-store') &&
       (response.headers.get('x-robots-tag') || '').includes('noindex') &&
-      response.headers.get('referrer-policy') === 'no-referrer');
+      soloNoReferrer(response.headers.get('referrer-policy')),
+      `Referrer-Policy: ${response.headers.get('referrer-policy') ?? 'ausente'}`);
   } catch {
     check(`${path} no indexable y no cacheable`, false, 'sin respuesta');
   }
