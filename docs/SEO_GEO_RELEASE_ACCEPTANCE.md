@@ -11,7 +11,7 @@ Opcional: definir SEO_EXPECT_BUILD_SHA con el SHA esperado del servicio; de omit
 Origen e indexabilidad deben declararse explícitamente para no confundir staging con producción.
 
 Solo GET: robots para bots generales y de IA, cinco páginas públicas con H1/canonical/noindex,
-landing /campo, QR La Rural/Angus con 302 y UTM, legales noindex, sitemap, llms.txt
+landing /campo, QR La Rural/Angus con 302 y UTM, legales noindex, índice y XML hijos del sitemap (sin URLs privadas), llms.txt
 y headers privados. Nunca envía datos por formularios ni invoca webhooks.
 
 ## Evidencias necesarias para informe final

@@ -61,3 +61,40 @@ export function checkPrivateResponse(headers) {
   if (!referrer.length || referrer.some(v => v !== 'no-referrer')) errors.push('unsafe Referrer-Policy');
   return errors;
 }
+
+// The sitemap index lists CHILD XMLs, not the pages. Validate every child.
+export function checkSitemapIndex(xml, origin) {
+  const errors = [];
+  if (!/<sitemapindex\b/i.test(xml)) errors.push('not a sitemap index');
+  const entries = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1].trim());
+  if (!entries.length || entries.length > 10) errors.push('sitemap child count out of bounds');
+  if (new Set(entries).size !== entries.length) errors.push('duplicate sitemap children');
+  const paths = [];
+  for (const entry of entries) {
+    let url;
+    try { url = new URL(entry); } catch { errors.push('invalid sitemap child URL'); continue; }
+    if (url.origin !== origin || !/^\/sitemap-\d+\.xml$/.test(url.pathname) ||
+        url.username || url.password || url.search || url.hash) {
+      errors.push('unsafe sitemap child URL: ' + entry);
+    } else paths.push(url.pathname);
+  }
+  return { errors, paths };
+}
+export function checkChildSitemap(xml, origin) {
+  const errors = [];
+  if (!/<urlset\b/i.test(xml)) errors.push('not a child URL sitemap');
+  const entries = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1].trim());
+  if (!entries.length) errors.push('empty child sitemap');
+  if (entries.length > 10000) errors.push('excessive child sitemap');
+  if (new Set(entries).size !== entries.length) errors.push('duplicate page URLs');
+  for (const entry of entries) {
+    let url;
+    try { url = new URL(entry); } catch { errors.push('invalid page URL'); continue; }
+    if (url.origin !== origin || url.username || url.password || url.search || url.hash) errors.push('wrong page origin or query: ' + entry);
+    if (/^\/(?:admin|api|diagnostico|m|r)(?:\/|$)/i.test(url.pathname) ||
+        /^\/(?:campo|privacidad|terminos-y-condiciones|nosotros)(?:\/|$)/i.test(url.pathname)) {
+      errors.push('excluded page appears in sitemap: ' + url.pathname);
+    }
+  }
+  return errors;
+}

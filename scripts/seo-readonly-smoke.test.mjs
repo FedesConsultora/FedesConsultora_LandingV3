@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { checkRobots, checkPublicHtml, checkQrRedirect, checkPrivateResponse, aiCrawlers, privateRobotsPaths } from './seo-readonly-contract.mjs';
+import { checkRobots, checkPublicHtml, checkQrRedirect, checkPrivateResponse, checkSitemapIndex, checkChildSitemap, aiCrawlers, privateRobotsPaths } from './seo-readonly-contract.mjs';
 
 const origin = 'https://fedesconsultora.com';
 const group = agents => [...agents.map(a => 'User-agent: ' + a), 'Allow: /', ...privateRobotsPaths.map(p => 'Disallow: ' + p)].join('\n');
@@ -31,4 +31,17 @@ test('private Referrer-Policy allows safe duplicate and rejects weakened values'
   assert.deepEqual(checkPrivateResponse(headers), []);
   headers.set('referrer-policy', 'no-referrer, origin');
   assert.ok(checkPrivateResponse(headers).includes('unsafe Referrer-Policy'));
+});
+
+// Positive and negative fixtures: the index alone cannot prove page exclusions.
+test('every same-origin sitemap child is required and only public pages may be listed', () => {
+  const index = '<sitemapindex><sitemap><loc>' + origin + '/sitemap-0.xml</loc></sitemap></sitemapindex>';
+  const result = checkSitemapIndex(index, origin);
+  assert.deepEqual(result, { errors: [], paths: ['/sitemap-0.xml'] });
+  assert.ok(checkSitemapIndex(index.replace(origin, 'https://external.example'), origin).errors.length);
+  const good = '<urlset><url><loc>' + origin + '/consultoria</loc></url></urlset>';
+  assert.deepEqual(checkChildSitemap(good, origin), []);
+  assert.match(checkChildSitemap(good.replace('/consultoria', '/campo'), origin).join(' '), /excluded page/);
+  assert.match(checkChildSitemap(good.replace('/consultoria', '/admin'), origin).join(' '), /excluded page/);
+  assert.ok(checkChildSitemap('<urlset></urlset>', origin).length);
 });

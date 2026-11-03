@@ -1,5 +1,5 @@
 // GET-only public site acceptance. Never sends forms/webhooks or credentials.
-import { checkRobots, checkPublicHtml, checkQrRedirect, checkPrivateResponse, publicRoutes } from './seo-readonly-contract.mjs';
+import { checkRobots, checkPublicHtml, checkQrRedirect, checkPrivateResponse, checkSitemapIndex, checkChildSitemap, publicRoutes } from './seo-readonly-contract.mjs';
 
 const input = process.env.SEO_SMOKE_ORIGIN;
 const expected = process.env.SEO_EXPECT_INDEXABLE;
@@ -72,11 +72,22 @@ for (const path of ['/privacidad', '/terminos-y-condiciones']) {
 }
 await run('GET /sitemap-index.xml', async () => {
   const { response, body } = await get('/sitemap-index.xml');
+  const { errors, paths } = checkSitemapIndex(body, origin);
   check('GET /sitemap-index.xml', [
     ...(response.status === 200 ? [] : ['HTTP ' + response.status]),
-    ...(!body.includes('<sitemapindex') ? ['not XML sitemap index'] : []),
-    ...(/\/admin|\/diagnostico\/|\/m\/|\/campo|\/privacidad|\/terminos-y-condiciones/i.test(body) ? ['excluded URL included'] : []),
+    ...errors,
   ]);
+  // Never follow arbitrary URLs supplied by an untrusted XML document.
+  // Only bounded, same-origin /sitemap-N.xml paths are accepted above.
+  for (const path of paths) {
+    await run('GET ' + path, async () => {
+      const child = await get(path);
+      check('GET ' + path, [
+        ...(child.response.status === 200 ? [] : ['HTTP ' + child.response.status]),
+        ...checkChildSitemap(child.body, origin),
+      ]);
+    });
+  }
 });
 await run('GET /llms.txt', async () => {
   const { response, body } = await get('/llms.txt');
