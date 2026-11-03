@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { checkRobots, checkPublicHtml, checkQrRedirect, checkPrivateResponse, aiCrawlers, privateRobotsPaths } from './seo-readonly-contract.mjs';
 
