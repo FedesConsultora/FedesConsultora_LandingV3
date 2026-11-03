@@ -10,7 +10,7 @@
     "start": "node ./dist/server/entry.mjs",
     "build": "astro build",
     "check": "astro check",
-    "verify": "npm run check && npm test && npm run build",
+    "verify": "npm run check && npm test && npm run check:seo-smoke && npm run build",
     "preview": "astro preview",
     "astro": "astro",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
@@ -22,7 +22,9 @@
     "verificar:fase2": "node --env-file-if-exists=.env scripts/verificar-fase2.mjs",
     "verify:integration": "node scripts/verify-integration.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "smoke:proxy": "node scripts/verificar-proxy.mjs"
+    "smoke:proxy": "node scripts/verificar-proxy.mjs",
+    "check:seo-smoke": "node --test scripts/seo-readonly-smoke.test.mjs",
+    "smoke:seo": "node scripts/seo-readonly-smoke.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
