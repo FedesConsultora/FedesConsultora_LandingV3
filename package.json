@@ -22,7 +22,9 @@
     "verificar:fase2": "node --env-file-if-exists=.env scripts/verificar-fase2.mjs",
     "verify:integration": "node scripts/verify-integration.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "smoke:proxy": "node scripts/verificar-proxy.mjs"
+    "smoke:proxy": "node scripts/verificar-proxy.mjs",
+    "check:seo-smoke": "vitest run scripts/seo-readonly-smoke.test.mjs",
+    "smoke:seo": "node scripts/seo-readonly-smoke.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
